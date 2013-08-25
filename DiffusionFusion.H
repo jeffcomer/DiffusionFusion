@@ -26,6 +26,7 @@
 #include "TrajLangevinGamma.H"
 #include "TrajComer.H"
 #include "TrajTurkcan.H"
+#include "TrajComer2d2d.H"
 //#include "TrajMobility.H"
 //#include "TrajCylinder.H"
 //#include "TrajCylinderAxial.H"
@@ -292,7 +293,7 @@ public:
     fprintf(stdout, "\nfield fieldName fieldType -step mcStep [-f initialFileName] [-periodic true|false] [-n numEntries] [-init initialValue] [-minVal val] [-maxVal val] [-var colName] [-err errorFile] [-outPmf force|prob] [-global true|false]\n");
     fprintf(stdout, "\t*Note: -outPmf force|prob allows you to write the negative integral\n\t\tor -kT log(prob), respectively, in addition writing the\n\t\tfield in the normal way.\n");
     fprintf(stdout, "\t*Note: -global permits parameters that affect all nodes.\n");
-    fprintf(stdout, "\ntrajCost turkcan|ccg|langevinExp|ccg2d|ccgLinear field0 field1... -kt k_BT -`varName' costVarName -leastLocal leastLocalField\n");
+    fprintf(stdout, "\ntrajCost turkcan|ccg|langevinExp|ccg2d|ccg2d2d|ccgLinear field0 field1... -kt k_BT -`varName' costVarName -leastLocal leastLocalField\n");
     fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
     fprintf(stdout, "\nprior scale|known|smooth field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension]\n");
     fprintf(stdout, "\ndump events|fields|distro|best|eventCost dumpFile\n");
@@ -1112,6 +1113,8 @@ private:
       trajCost = new TrajComerPmfLinear((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg2d") {
        trajCost = new TrajComer2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+    } else if (type == "ccg2d2d") {
+       trajCost = new TrajComer2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
       //    } else if (type == "ccgCyl" || type == "cylinder") {
       //trajCost = new TrajCylinder((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, trajVarNum);
     // } else if (type == "mobility") {
