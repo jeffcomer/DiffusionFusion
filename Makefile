@@ -38,3 +38,5 @@ map:
 
 ccgCost:
 	g++ -O2 -Wall ccgCost.C -o ccgCost
+gnuplot:
+	g++ -O2 -Wall dxToGnuplot2d.C -o dxToGnuplot2d
