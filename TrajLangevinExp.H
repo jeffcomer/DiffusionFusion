@@ -10,9 +10,9 @@
 
 class TrajLangevinExp : public TrajCostComputer {
 private:
-  const PiecewiseCubic* diffuse;
-  const PiecewiseCubic* pmf;
-  const PiecewiseCubic* mass;
+  const Piecewise1d* diffuse;
+  const Piecewise1d* pmf;
+  const Piecewise1d* mass;
   int T, X, D, FB;
 
 public:
@@ -24,19 +24,19 @@ public:
       exit(-1);
     }
 
-    diffuse = dynamic_cast<const PiecewiseCubic*>(fieldList[fieldSel.get(0)]);
+    diffuse = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(0)]);
     if (diffuse == NULL) {
-       fprintf(stderr,"ERROR trajCost LangevinExp requires field type cubic.\n");
+       fprintf(stderr,"ERROR trajCost LangevinExp requires field type linear or cubic.\n");
        exit(-1);
     }
-    pmf = dynamic_cast<const PiecewiseCubic*>(fieldList[fieldSel.get(1)]);
+    pmf = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(1)]);
     if (pmf == NULL) {
-       fprintf(stderr,"ERROR trajCost langevinExp requires field type cubic.\n");
+       fprintf(stderr,"ERROR trajCost langevinExp requires field type linear or cubic.\n");
        exit(-1);
     }
-    mass = dynamic_cast<const PiecewiseCubic*>(fieldList[fieldSel.get(2)]);
+    mass = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(2)]);
     if (mass == NULL) {
-       fprintf(stderr,"ERROR trajCost langevinExp requires field type cubic.\n");
+       fprintf(stderr,"ERROR trajCost langevinExp requires field type linear or cubic.\n");
        exit(-1);
     }
 
