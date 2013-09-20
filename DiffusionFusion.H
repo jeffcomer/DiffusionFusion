@@ -765,8 +765,8 @@ private:
 	  }
 	} else if (opt == "offset") {
 	  eventFileOffset[f] = atoi(val.cs());
-	  if (eventFileOffset[f] < 1 || eventFileOffset[f] >= eventFileSkip[f] ) {
-	    fprintf(stderr, "ERROR loadEvents %s: -offset must be 0 < offset < skip. A -skip command should precede -offset.\n", eventFileList[f].cs());
+	  if (eventFileOffset[f] < 0 || eventFileOffset[f] >= eventFileSkip[f] ) {
+	    fprintf(stderr, "ERROR loadEvents %s: -offset %d must be 0 <= offset < skip=%d. A -skip command should precede -offset.\n", eventFileList[f].cs(), eventFileOffset[f], eventFileSkip[f]);
 	    exit(-1);
 	  }
 	} else {
