@@ -288,7 +288,7 @@ public:
     //fprintf(stdout, "\t*Note: -minVal and -maxVal filters apply to the initial of position of an event\n");
     fprintf(stdout, "\t*Note: -stride changes the time between frames, while -skip\n\t\tthrows out events after the interval has been calculated.\n");
     fprintf(stdout, "\nloadMany trajFileFile [same options as load]\n");
-    fprintf(stdout, "\nloadEvent eventFile\n");
+    fprintf(stdout, "\nloadEvent [-skip eventSkip] [-offset remainder] eventFile\n");
     fprintf(stdout, "\t*Note: Assumed to already be correctly filtered.\n");
     fprintf(stdout, "\nfield fieldName fieldType -step mcStep [-f initialFileName] [-periodic true|false] [-n numEntries] [-init initialValue] [-minVal val] [-maxVal val] [-var colName] [-err errorFile] [-outPmf force|prob] [-global true|false]\n");
     fprintf(stdout, "\t*Note: -outPmf force|prob allows you to write the negative integral\n\t\tor -kT log(prob), respectively, in addition writing the\n\t\tfield in the normal way.\n");
@@ -737,6 +737,8 @@ private:
     printf("We will load a total of %d event files.\n", eventFileNum);
     printf("EVENTFILENUM %d\n", eventFileNum);
     String* eventFileList = new String[eventFileNum];
+    int* eventFileSkip = new int[eventFileNum];
+    int* eventFileOffset = new int[eventFileNum];
     for (int f = 0; f < eventFileNum; f++) {
       CommandLineReader* pCmd = cmdList[cmdLoadEvents.get(f)];
       if (pCmd->getParamNum() != 1) {
@@ -744,11 +746,38 @@ private:
 	printUsage();
 	exit(-1);
       }
+      
+      // Set the event file and default options.
       eventFileList[f] = pCmd->getParam(0);
-    }
+      eventFileSkip[f] = 1;
+      eventFileOffset[f] = 0;
 
+      // Check out the loadEvents options.
+      for (int o = 0; o < pCmd->getOptionNum(); o++) {
+	String opt(pCmd->getOption(o));
+	String val(pCmd->getOptionValue(o));
+
+	if (opt == "skip") {
+	  eventFileSkip[f] = atoi(val.cs());
+	  if (eventFileSkip[f] < 1) {
+	    fprintf(stderr, "ERROR loadEvents %s: -skip must be greater than or equal to 1\n", eventFileList[f].cs());
+	    exit(-1);
+	  }
+	} else if (opt == "offset") {
+	  eventFileOffset[f] = atoi(val.cs());
+	  if (eventFileOffset[f] < 1 || eventFileOffset[f] >= eventFileSkip[f] ) {
+	    fprintf(stderr, "ERROR loadEvents %s: -offset must be 0 < offset < skip. A -skip command should precede -offset.\n", eventFileList[f].cs());
+	    exit(-1);
+	  }
+	} else {
+	  fprintf(stderr, "ERROR loadEvents %s: Unrecognized option `-%s'\n", eventFileList[f].cs(), opt.cs());
+	  exit(-1);
+	}
+      } // Done with the options.
+    } // Done with loadEvents
+    
     // Actually load the files, applying filters.
-    loadAll(fileList, fileNum, eventFileList, eventFileNum);
+    loadAll(fileList, fileNum, eventFileList, eventFileSkip, eventFileOffset, eventFileNum);
 
     for (int f = 0; f < fileNum; f++) delete fileList[f].filter;
     delete[] fileList;
@@ -832,7 +861,7 @@ private:
 	traj.filter->addPeriodic(pVar, pMin, pMax);
 	o+=2; // We already did the next 2 options.
       } else {
-	fprintf(stderr, "ERROR load %s Unrecognized option `%s'.\n", fileName.cs(), opt.cs());
+	fprintf(stderr, "ERROR load %s: Unrecognized option `-%s'.\n", fileName.cs(), opt.cs());
 	printUsage();
 	exit(-1);
       }
@@ -843,7 +872,7 @@ private:
   // Initialize the event.
   // Load all files from the list of trajectory files using readTrajFile().
   // readTrajFile() also fills the event buffer and applies the filters.
-  void loadAll(const TrajFile* fileList, int fileNum, const String* eventFileList, int eventFileNum) {
+  void loadAll(const TrajFile* fileList, int fileNum, const String* eventFileList, const int* eventFileSkip, const int* eventFileOffset, int eventFileNum) {
     // Count the number of possible events.
     eventMax = 1;
     for (int f = 0; f < fileNum; f++) {
@@ -856,8 +885,7 @@ private:
     IndexList eventColList;
     for (int i = 0; i < trajVarNum; i++) eventColList.add(i);
     for (int f = 0; f < eventFileNum; f++)
-      eventMax += countLines(eventFileList[f].cs(), eventColList);
-
+      eventMax += countLines(eventFileList[f].cs(), eventColList)/eventFileSkip[f] + 1;
 
     printf("Maximum number of events %d\n\n", eventMax);
 
@@ -871,7 +899,8 @@ private:
     }
 
     // Read the event files directly.
-    for (int f = 0; f < eventFileNum; f++) readEventFile(eventFileList[f].cs());
+    for (int f = 0; f < eventFileNum; f++)
+      readEventFile(eventFileList[f].cs(), eventFileSkip[f], eventFileOffset[f]);
   }
 
   void prepareField(const CommandLineReader& cmdLine, int fieldInd) {
@@ -939,7 +968,7 @@ private:
 	}
 
       } else {
-	fprintf(stderr, "ERROR field %s: Unrecognized option `%s' \n", fieldDesc[f].name.cs(), opt.cs());
+	fprintf(stderr, "ERROR field %s: Unrecognized option `-%s' \n", fieldDesc[f].name.cs(), opt.cs());
 	printUsage();
 	exit(-1);
       }
@@ -1729,7 +1758,7 @@ private:
     return l;
   }
 
-  void readEventFile(const char* eventFile) {
+  void readEventFile(const char* eventFile, int skip, int offset) {
     // Open the file for reading.
     FILE* inp = fopen(eventFile,"r");
     if (inp == NULL) {
@@ -1741,6 +1770,7 @@ private:
     //const int trajVarNumTwo = trajVarNum*2;
     const int trajVarNumThree = trajVarNum*3;
     String tokenList[trajVarNumThree];
+    int e = 0;
     while (fgets(line, STRLEN, inp) != NULL) {
       String s(line);
       if (!checkLine(s)) continue;
@@ -1757,14 +1787,21 @@ private:
 	exit(-1);
       }
 
-      // Put the event data directly into the event buffer.
+
       s.tokenize(tokenList);
-      for (int v = 0; v < trajVarNum; v++) {
-	event[eventNum].var[v] = strtod(tokenList[3*v].cs(),NULL);
-	event[eventNum].del[v] = strtod(tokenList[3*v+1].cs(),NULL);
-	event[eventNum].del0[v] = strtod(tokenList[3*v+2].cs(),NULL);
+      // Perhaps skip some entries.
+      if (e % skip == offset) {
+	// Put the event data directly into the event buffer.
+	for (int v = 0; v < trajVarNum; v++) {
+	  event[eventNum].var[v] = strtod(tokenList[3*v].cs(),NULL);
+	  event[eventNum].del[v] = strtod(tokenList[3*v+1].cs(),NULL);
+	  event[eventNum].del0[v] = strtod(tokenList[3*v+2].cs(),NULL);
+	}
+	eventNum++;
       }
-      eventNum++;
+      e++;
+
+      // Next line.
     }
     fclose(inp);
   }

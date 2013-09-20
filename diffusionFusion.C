@@ -15,7 +15,7 @@ void printUsage(const char* argv0) {
 int main(int argc, char* argv[]) {
   printf("*****DiffusionFusion*****\n");
   printf("Written by Jeff Comer <jeffcomer at gmail dot com>\n");
-  printf("A program to predict diffusivity profiles (spatially dependent diffusion coefficients) from MD trajectories\n");
+  printf("Implementation of a Bayesian inference scheme for calculating position-dependent diffusivities from MD trajectories.\n.");
   printf("The approach is described in Comer, Chipot and Gonzalez-Nilo (2013) J. Chem. Theory Comput., 9(2) pp 876-882.\n\n");
   
   // Initialize the clock.
