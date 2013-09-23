@@ -4,14 +4,15 @@
 
 #include "useful.H"
 #include "Field.H"
+#include "PiecewiseLinear.H"
 #include "PiecewiseCubic.H"
 #include "Event.H"
 #include "TrajCostComputer.H"
 
 class TrajComerPmf : public TrajCostComputer {
 private:
-  const PiecewiseCubic* diffuse;
-  const PiecewiseCubic* pmf;
+  const Piecewise1d* diffuse;
+  const Piecewise1d* pmf;
   int T, X, D, FB;
 
 public:
@@ -23,14 +24,14 @@ public:
       exit(-1);
     }
 
-    diffuse = dynamic_cast<const PiecewiseCubic*>(fieldList[fieldSel.get(0)]);
+    diffuse = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(0)]);
     if (diffuse == NULL) {
-       fprintf(stderr,"ERROR trajCost ccgPmf requires field type cubic.\n");
+       fprintf(stderr,"ERROR trajCost ccgPmf requires field type linear or cubic.\n");
        exit(-1);
     }
-    pmf = dynamic_cast<const PiecewiseCubic*>(fieldList[fieldSel.get(1)]);
+    pmf = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(1)]);
     if (pmf == NULL) {
-       fprintf(stderr,"ERROR trajCost ccgPmf requires field type cubic.\n");
+       fprintf(stderr,"ERROR trajCost ccgPmf requires field type linear or cubic.\n");
        exit(-1);
     }
 
