@@ -115,6 +115,9 @@ public:
   
   double getKt() const { return 1.0/beta; }
   int getNodes() const { return leastLocalNodes; }
+  // This is usually the number of events, but can
+  // be overloaded to the number of blocks.
+  int unitNum() const { return eventNum; }
   
   // Calculate the cost over all nodes.
   virtual double calcCost() {

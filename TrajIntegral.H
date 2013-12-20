@@ -146,7 +146,7 @@ public:
 
     // Check for NaN.
     if (cost != cost) {
-      fprintf(stderr,"ERROR eventCost NaN\n");
+      fprintf(stderr,"ERROR blockCost NaN\n");
       fprintf(stderr,"NAN block %d dispSum %g meanSum %g varSum %g\n",
 	      b, dispSum, meanSum, varSum);
       exit(-1);
@@ -187,11 +187,26 @@ public:
     } // End of block loop
   }
 
-  virtual double eventCost(int e) {
-    // We should never call this.
-    fprintf(stderr,"ERROR eventCost called for TrajIntegral. We don't have eventCost, only blockCost.\n");
-    exit(-1);
+  // We return the number of blocks instead of the number of events.
+  virtual int unitNum() const {
+    return blockNum;
   }
+
+  virtual double eventCost(int e) {
+    // I used to always produce an error here, since we
+    // only define costs for blocks of events.
+    // However, it's simpler for some purposes to have
+    // this give a block cost.
+    // The function unitNum() ensures the caller iterates through
+    // the blocks instead.
+
+    if (e < 0 || e > blockNum) {
+      fprintf(stderr,"ERROR eventCost called for TrajIntegral with e greater than the number of blocks. TrajIntegral gives the cost for a block of events, not for the events themselves.\n");
+      exit(-1);
+    }
+    return blockCost(e);
+  }
+
 
   ////////////////////////////////////////////////////////////////////
   // We overload calcCost, deltaCost, revert, cloneLast, and updateLocal.

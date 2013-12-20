@@ -1960,9 +1960,10 @@ public:
   }
 
   void writeGtDistro(const String& fileName) {
-    // Get the gt value for each event.
-    double* gt = new double[eventNum];
-    for (int e = 0; e < eventNum; e++) {
+    // Get the gt value for each event (or event block).
+    int n = trajCost->unitNum();
+    double* gt = new double[n];
+    for (int e = 0; e < n; e++) {
       trajCost->eventCost(e);
       gt[e] = trajCost->gtNumer/sqrt(trajCost->gtVar);
     }
@@ -1970,7 +1971,7 @@ public:
     // Create bins. Five sigma!
     Bin normalBin(100, -5.0, 5.0);
 
-    writeHistogram(fileName.cs(), gt, eventNum, normalBin);
+    writeHistogram(fileName.cs(), gt, n, normalBin);
     delete[] gt;
   }
 
@@ -1981,7 +1982,7 @@ public:
       fprintf(stderr,"Warning: Couldn't open file `%s' for writing.\n", fileName.cs());
       return false;
     }
-    for (int e = 0; e < eventNum; e++)
+    for (int e = 0; e < trajCost->unitNum(); e++)
       fprintf(out, "%.14g\n", trajCost->eventCost(e));
 
     fclose(out);
