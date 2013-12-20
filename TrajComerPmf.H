@@ -89,7 +89,9 @@ public:
     gtNumer = gtNumer0;
     gtVar = gtVar0;
 
-    //printf("kT %g dt %g\n", 1.0/beta, dt);
+#ifdef FUSION_DEBUG
+    printf("dt %g dx %g frc %g dif %g gradDif %g\n", dt, dx, frc, dif, gradDif);
+#endif
 
     return 0.5*log(2.0*M_PI*gtVar0) + 0.5*(gtNumer0*gtNumer0)/gtVar0;
   }

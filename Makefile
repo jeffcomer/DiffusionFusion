@@ -14,6 +14,9 @@ stable:
 debug:
 	g++ -ggdb -Wall ${ROOT}.C -o ${ROOT} -lm -lgsl -lgslcblas -fopenmp
 
+fdebug:
+	g++ -DFUSION_DEBUG -Wall ${ROOT}.C -o ${ROOT} -lm -lgsl -lgslcblas -fopenmp
+
 clean:
 	rm ${ROOT}
 

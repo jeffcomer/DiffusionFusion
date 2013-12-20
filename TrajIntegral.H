@@ -94,19 +94,6 @@ public:
   }
 
 
-  // The heart of the method: Eq 2 of Comer, Chipot, Gonzalez.
-  inline double ccgCost(double dt, double dx, double frc, double dif, double gradDif) {
-    // Store the data that can be used to reconstruct gt.
-    double gtNumer0 = dx - beta*dif*frc*dt - gradDif*dt;
-    double gtVar0 = 2.0*dif*dt;
-    // Avoid race conditions.
-    gtNumer = gtNumer0;
-    gtVar = gtVar0;
-
-    //printf("kT %g dt %g\n", 1.0/beta, dt);
-
-    return 0.5*log(2.0*M_PI*gtVar0) + 0.5*(gtNumer0*gtNumer0)/gtVar0;
-  }
 
   double blockCost(int b) {
     int e0 = b*blockLen;
@@ -130,9 +117,13 @@ public:
       diffuse->computeValGrad(event[e].var[X], dif, gradDif);
 
       // Accumulate the sums.
-      dispSum += event[e].var[D];
+      dispSum += event[e].del[D];
       meanSum += beta*dif*frc + gradDif;
       varSum += dif;
+
+#ifdef FUSION_DEBUG
+    printf("dt %g dx %g frc %g dif %g gradDif %g\n", dt, dispSum, frc, dif, gradDif);
+#endif
     }
     // These are the mean and variance sums.
     meanSum *= dt;
@@ -140,6 +131,7 @@ public:
     double gtNumer0 = dispSum - meanSum;
     gtNumer = gtNumer0;
     gtVar = varSum;
+
 
     // Here is the integrated cost of the block
     double cost = 0.5*log(2.0*M_PI*varSum) + 0.5*(gtNumer0*gtNumer0)/varSum;
