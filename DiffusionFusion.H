@@ -1189,6 +1189,8 @@ private:
 
     printf("  kT %.15g\n", trajCost->getKt());
     printf("  leastLocalField %d \"%s\" \n", leastLocal, fieldDesc[leastLocal].name.cs());
+    if (type == "integral") 
+      printf("  blockLen %d\n", blockLen);
     printf("\n");
     printf("INITIAL_TRAJCOST %.15g\n", trajCost->calcCost());
 
