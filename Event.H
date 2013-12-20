@@ -9,6 +9,7 @@ public:
   double var[varMax]; // variable value
   double del[varMax]; // difference in variable
   double del0[varMax]; // last difference in variable
+  int block; // the block number
 };
 
 #endif

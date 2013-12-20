@@ -19,13 +19,14 @@
 #include "TrajCostComputer.H"
 #include "TrajComerPmf.H"
 #include "TrajComer2d.H"
-#include "TrajComerPmfLinear.H"
+//#include "TrajComerPmfLinear.H"
 #include "TrajLangevin.H"
 #include "TrajLangevinExp.H"
 #include "TrajLangevinExp2d.H"
 #include "TrajLangevinGamma.H"
 #include "TrajComer.H"
 #include "TrajTurkcan.H"
+#include "TrajIntegral.H"
 #include "TrajComer2d2d.H"
 //#include "TrajMobility.H"
 //#include "TrajCylinder.H"
@@ -86,6 +87,8 @@ private:
   int* trajVarCol;
   String* trajVarName;
   IndexList colList;
+  int blockLen;
+  int blockNum;
 
   // List of events.
   int eventMax;
@@ -119,7 +122,7 @@ private:
 
   TrajCostComputer* trajCost;
 public:
-  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), eventMax(1), eventNum(0), event(NULL),  fieldNum(0), fieldList(NULL), priorNum(0), priorList(NULL), monte(NULL), mcCycles(0) {
+  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), blockNum(0), eventMax(1), eventNum(0), event(NULL),  fieldNum(0), fieldList(NULL), priorNum(0), priorList(NULL), monte(NULL), mcCycles(0) {
     // Read the configuration file.
     cmdNum = countLines(cmdFile.cs(), IndexList(0));
     cmdList = new CommandLineReader*[cmdNum];
@@ -293,7 +296,7 @@ public:
     fprintf(stdout, "\nfield fieldName fieldType -step mcStep [-f initialFileName] [-periodic true|false] [-n numEntries] [-init initialValue] [-minVal val] [-maxVal val] [-var colName] [-err errorFile] [-outPmf force|prob] [-global true|false]\n");
     fprintf(stdout, "\t*Note: -outPmf force|prob allows you to write the negative integral\n\t\tor -kT log(prob), respectively, in addition writing the\n\t\tfield in the normal way.\n");
     fprintf(stdout, "\t*Note: -global permits parameters that affect all nodes.\n");
-    fprintf(stdout, "\ntrajCost turkcan|ccg|langevinExp|ccg2d|ccg2d2d|ccgLinear field0 field1... -kt k_BT -`varName' costVarName -leastLocal leastLocalField\n");
+    fprintf(stdout, "\ntrajCost ccgPmf|langevinExp field0 field1... -kt k_BT -`varName' costVarName -leastLocal leastLocalField\n");
     fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
     fprintf(stdout, "\nprior scale|known|smooth field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension]\n");
     fprintf(stdout, "\ndump events|fields|distro|best|eventCost dumpFile\n");
@@ -589,7 +592,7 @@ public:
 private:
   // Read the trajectory variables.
   void prepareTrajectory(const CommandLineReader& cmd) {
-
+    blockLen = 1;
     trajVarNum = cmd.getOptionNum()/2;
     printf("There are %d trajectory variables.\n", trajVarNum);
     trajVarName = new String[trajVarNum];
@@ -637,6 +640,9 @@ private:
 	  forceCol.add(col);
 	}
 	o++; // We already did the next option.
+      } else if (opt == "block") {
+	// Set the cycle length.
+	blockLen = atoi(val.cs());
       } else {
 	fprintf(stderr, "ERROR trajectory: Unrecognized option `%s'\n", opt.cs());
 	exit(-1);
@@ -874,6 +880,7 @@ private:
   // readTrajFile() also fills the event buffer and applies the filters.
   void loadAll(const TrajFile* fileList, int fileNum, const String* eventFileList, const int* eventFileSkip, const int* eventFileOffset, int eventFileNum) {
     // Count the number of possible events.
+    blockNum = 0;
     eventMax = 1;
     for (int f = 0; f < fileNum; f++) {
       //printf("%s\n", fileList[f].toString().cs());
@@ -901,6 +908,14 @@ private:
     // Read the event files directly.
     for (int f = 0; f < eventFileNum; f++)
       readEventFile(eventFileList[f].cs(), eventFileSkip[f], eventFileOffset[f]);
+
+    // Keep only complete blocks.
+    if (blockLen != 1) {
+      printf("There are %d events before blocking.\n", eventNum);
+      int bn = blockEvents();
+      printf("Kept %d complete event blocks of block length %d\n", bn, blockLen);
+      printf("There are %d events after blocking.\n", eventNum);
+    }
   }
 
   void prepareField(const CommandLineReader& cmdLine, int fieldInd) {
@@ -1138,12 +1153,13 @@ private:
       trajCost = new TrajLangevinExp((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
      } else if (type == "langevinExp2d") {
       trajCost = new TrajLangevinExp2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-     } else if (type == "ccgLinear") {
-      trajCost = new TrajComerPmfLinear((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg2d") {
        trajCost = new TrajComer2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg2d2d") {
        trajCost = new TrajComer2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+    } else if (type == "integral") {
+      trajCost = new TrajIntegral((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
+      if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegral is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
       //    } else if (type == "ccgCyl" || type == "cylinder") {
       //trajCost = new TrajCylinder((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, trajVarNum);
     // } else if (type == "mobility") {
@@ -1618,6 +1634,7 @@ private:
     int read = -1;
     int ln = 0;
     int eventCounter = 0;
+    int blockCounter = -1;
 
     /////
     // Read all the entries.
@@ -1637,6 +1654,13 @@ private:
 	exit(-1);
       }
       
+      // blockCounter is the count of valid strided entries.
+      blockCounter++;
+      if (blockCounter >= blockLen) {
+	blockNum++;
+	blockCounter = 0;
+      }
+
       // Get the event data.
       String* tokList = new String[tokN];
       s.tokenize(tokList);
@@ -1644,6 +1668,7 @@ private:
       // Read the current variable values and set varLast.
       for (int c = 0; c < columns; c++) {
 	int col = colList.get(c);
+	event[eventNum].block = blockNum;
 	// Negative columns are set to zero.
 	if (col < 0) {
 	  event[eventNum].var[c] = 0.0;
@@ -1726,7 +1751,54 @@ private:
       exit(-1);
     }
 
+    blockNum++;
     return eventNum - eventNum0;
+  }
+
+  // Remove series of events that do not conform to the block structure.
+  int blockEvents() {
+    int currBlock = -1;
+    int currCount = 0;
+    int en = 0;
+    int newBlockNum = 0;
+    for (int e = 0; e < eventNum; e++) {
+      if (event[e].block != currBlock) {
+	// New block.
+	// Was the last block a complete?
+	if (currCount == blockLen) {
+	  // This block is complete.
+	  // Slide it down in the event buffer, possibly overwriting incomplete blocks.
+	  for (int i = 0; i < blockLen; i++) {
+	    event[en] = event[e-blockLen+i];
+	    en++;
+	  }
+	  newBlockNum++;
+	}
+	
+	currBlock = event[e].block;
+	currCount = 0;
+      }
+      currCount++;
+
+      //printf("block %d current count %d\n", event[e].block, currCount);
+    }
+
+    // Try to keep the last block.
+    if (currCount == blockLen) {
+      // This block is complete.
+      // Slide it down in the event buffer, possibly overwriting incomplete blocks.
+      int e = eventNum;
+      for (int i = 0; i < blockLen; i++) {
+	event[en] = event[e-blockLen+i];
+	en++;
+      }
+      newBlockNum++;
+    }
+
+    // The new number of events.
+    eventNum = en;
+
+    return newBlockNum;
   }
 
   static int readFileFile(const char* fileFile, String* fileList, int readMax) {
@@ -1782,7 +1854,8 @@ private:
       }
  
       int numTokens = s.tokenCount();
-      if (numTokens != trajVarNumThree) {
+      // +1 is for the block number
+      if (numTokens != trajVarNumThree && numTokens != trajVarNumThree+1) {
 	fprintf(stderr,"ERROR Line of eventFile `%s' doesn't have %d entries:\n%s\n", eventFile, trajVarNumThree, line);
 	exit(-1);
       }
@@ -1797,6 +1870,7 @@ private:
 	  event[eventNum].del[v] = strtod(tokenList[3*v+1].cs(),NULL);
 	  event[eventNum].del0[v] = strtod(tokenList[3*v+2].cs(),NULL);
 	}
+	event[eventNum].block = eventNum % blockLen;
 	eventNum++;
       }
       e++;
@@ -1826,7 +1900,7 @@ public:
       for (int v = 0; v < trajVarNum; v++) {
 	fprintf(out, "%.14g %.14g %.14g ", event[e].var[v], event[e].del[v], event[e].del0[v]);
       }
-      fprintf(out, "\n");
+      fprintf(out, "%d\n", event[e].block);
     }
 
     fclose(out);

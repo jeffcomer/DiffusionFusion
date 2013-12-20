@@ -24,6 +24,7 @@ protected:
   const int leastLocalNodes;
   int trajVarMin;
   int* eventIndList;
+  int blockLen;
 
 public:
   // Store variables which can be used to reconstruct gt.
@@ -37,16 +38,36 @@ private:
   LocalCost* local;
 public:  
   TrajCostComputer(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocalFieldInd, int trajVarMin0)
-    : beta(1.0/kt), fieldList(ppf), tcFieldNum(fieldSel0.length()), fieldSel(fieldSel0), eventNum(eventNum0), event(event0), leastLocalField(ppf[leastLocalFieldInd]), leastLocalNodes(leastLocalField->length()), trajVarMin(trajVarMin0) {
+    : beta(1.0/kt), fieldList(ppf), tcFieldNum(fieldSel0.length()), fieldSel(fieldSel0), eventNum(eventNum0), event(event0), leastLocalField(ppf[leastLocalFieldInd]), leastLocalNodes(leastLocalField->length()), trajVarMin(trajVarMin0), blockLen(1) {
     if (tcFieldNum == 0) {
       fprintf(stderr, "ERROR TrajCostComputer must act on at least one field.\n");
       exit(-1);
     }
     
+    
     initLocal();
     eventIndList = new int[trajVarMin];
     for (int i = 0; i < trajVarMin; i++) eventIndList[i] = 0;
   }
+
+  TrajCostComputer(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocalFieldInd, int trajVarMin0, int blockLen0)
+    : beta(1.0/kt), fieldList(ppf), tcFieldNum(fieldSel0.length()), fieldSel(fieldSel0), eventNum(eventNum0), event(event0), leastLocalField(ppf[leastLocalFieldInd]), leastLocalNodes(leastLocalField->length()), trajVarMin(trajVarMin0), blockLen(blockLen0) {
+    if (tcFieldNum == 0) {
+      fprintf(stderr, "ERROR TrajCostComputer must act on at least one field.\n");
+      exit(-1);
+    }
+
+    if (blockLen < 1) {
+      fprintf(stderr, "ERROR TrajCostComputer::blockLen must be at least 1.\n");
+      exit(-1);
+    }
+    
+    
+    initLocal();
+    eventIndList = new int[trajVarMin];
+    for (int i = 0; i < trajVarMin; i++) eventIndList[i] = 0;
+  }
+
 
   virtual ~TrajCostComputer() {
     delete[] event;
@@ -96,7 +117,7 @@ public:
   int getNodes() const { return leastLocalNodes; }
   
   // Calculate the cost over all nodes.
-  double calcCost() {
+  virtual double calcCost() {
     long double cost = 0.0;
 #pragma omp parallel for reduction(+:cost)
     for (int e = 0; e < eventNum; e++) cost += eventCost(e);
@@ -104,7 +125,7 @@ public:
   }
 
   // Calculate the change in cost using the LocalCost array.
-  double deltaCost(const TrialMove& trialMove) {
+  virtual double deltaCost(const TrialMove& trialMove) {
       IndexList neigh = leastLocalField->neighbors(trialMove.node);
 
       double dc = 0.0;
@@ -133,7 +154,7 @@ public:
 
   inline int tcField(int id) const { return fieldSel.find(id); }
 
-  void revert(const TrialMove& trialMove) {
+  void virtual revert(const TrialMove& trialMove) {
     IndexList neigh = leastLocalField->neighbors(trialMove.node);
 
 #pragma omp parallel for
@@ -145,7 +166,7 @@ public:
   }
 
   // Set the local costs.
-  double updateLocal() {
+  virtual double updateLocal() {
     double cost = 0.0;
     
     for (int n = 0; n < leastLocalNodes; n++) {
@@ -167,7 +188,7 @@ public:
   }
 
   // Make the last cost the current cost.
-  void cloneLast() {
+  virtual void cloneLast() {
      // Clone currCost to lastCost.
 #pragma omp parallel for
     for (int n = 0; n < leastLocalNodes; n++)
