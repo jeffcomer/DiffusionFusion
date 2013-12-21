@@ -117,7 +117,7 @@ public:
   int getNodes() const { return leastLocalNodes; }
   // This is usually the number of events, but can
   // be overloaded to the number of blocks.
-  int unitNum() const { return eventNum; }
+  virtual int unitNum() const { return eventNum; }
   
   // Calculate the cost over all nodes.
   virtual double calcCost() {
