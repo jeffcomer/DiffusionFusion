@@ -284,10 +284,10 @@ public:
   static void printUsage() {
     fprintf(stdout, "Command usage:\n\n");
     fprintf(stdout, "trajectory [-time varName -col colInd] [-coor varName -col colInd] [-force varName -col colInd] [-block blockLen]...\n");
-    fprintf(stdout, "\t*Note: An important restriction is that the coordinates must be given in the order of the axes of the fields.");
-    fprintf(stdout, "\t E.g. the first -coor is assumed to the primary direction in all fields.\n");
-    fprintf(stdout, "\t*Note: Organizing the data into contiguous blocks, as effected by -block, is useful for intergral methods.\n");
     fprintf(stdout, "\t*Note: Replacing the column index with a period `.' makes a variable of all zeros.\n");
+    fprintf(stdout, "\t*Note: Organizing the data into contiguous blocks, as effected by -block, is useful for intergral methods.\n");
+    fprintf(stdout, "\t*Note: An important restriction is that the coordinates must be given in the order of the axes of the fields.");
+    fprintf(stdout, "\t E.g, the first -coor is assumed to the primary direction in all fields.\n");
     fprintf(stdout, "\nload trajFile [-stride dataStride] [-skip eventSkip] [-minVar colName -minVal val] [-maxVar colName -maxVal val] [-scaleVar colName -scaleVal val] [-periodicVar col -periodicMin qMin -periodicMax qMax] [-pos init|mid|final]\n");
     //fprintf(stdout, "\t*Note: -minVal and -maxVal filters apply to the initial of position of an event\n");
     fprintf(stdout, "\t*Note: -stride changes the time between frames, while -skip\n\t\tthrows out events after the interval has been calculated.\n");
