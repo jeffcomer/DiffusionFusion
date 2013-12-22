@@ -176,6 +176,9 @@ public:
 	  if (ind < 0) blockNodeList[b].add(j);
 	} // Done with the neighbors of event eb of block b.
       } // Done with the events in block b.
+
+      // Compact the memory used.
+      blockNodeList[b].economize();
     } // End of block loop
   }
 

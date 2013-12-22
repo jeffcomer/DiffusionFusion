@@ -721,30 +721,30 @@ class IndexList {
 public:
   IndexList() {
     num = 0;
-    maxnum = 16;
-    lis = new int[maxnum];
+    cap = 8;
+    lis = new int[cap];
   }
 
   IndexList(const IndexList& l) {
     num = l.num;
-    maxnum = num + 16;
-    lis = new int[maxnum];
+    cap = num + 8;
+    lis = new int[cap];
 
     for(int i = 0; i < l.num; i++) lis[i] = l.lis[i];
   }
 
   IndexList(const int* a, int n) {
     num = n;
-    maxnum = num + 16;
-    lis = new int[maxnum];
+    cap = num + 8;
+    lis = new int[cap];
     
     for(int i = 0; i < n; i++) lis[i] = a[i];
   }
 
   IndexList(int a) {
     num = 1;
-    maxnum = num+7;
-    lis = new int[maxnum];
+    cap = num+7;
+    lis = new int[cap];
     lis[0] = a;
   }
   
@@ -752,17 +752,26 @@ public:
     delete[] lis;
   }
  
+  void economize() {
+    // Use only the space necessary.
+    if (num != cap) {
+      int* oldlis = lis;
+      lis = new int[num];
+      int i;
+      for(i = 0; i < num; i++) lis[i] = oldlis[i];
+      delete [] oldlis;
+    }
+  }
+
   void add(const int val) {
     // If we need more space, allocate a new block that is 1.5 times larger
     // and copy everything over
-    if (num == maxnum) {
-      maxnum = (maxnum*3)/2 + 1;
+    if (num == cap) {
+      cap = (cap*3)/2 + 1;
       int* oldlis = lis;
-      lis = new int[maxnum];
+      lis = new int[cap];
       int i;
-      for(i = 0; i < num; i++) {
-        lis[i] = oldlis[i];
-      }
+      for(i = 0; i < num; i++) lis[i] = oldlis[i];
       delete [] oldlis;
     }
     
@@ -771,12 +780,13 @@ public:
     num++;
   }
 
+
   IndexList& operator=(const IndexList& l) {
     delete[] lis;
 
     num = l.num;
-    maxnum = num + 16;
-    lis = new int[maxnum];
+    cap = num + 8;
+    lis = new int[cap];
 
     for(int i = 0; i < num; i++) lis[i] = l.lis[i];
     return *this;
@@ -786,10 +796,10 @@ public:
     int oldnum = num;
     num = num + l.num;
 
-    if (num > maxnum) {
-      maxnum = (num*3)/2 + 1;
+    if (num > cap) {
+      cap = (num*3)/2 + 1;
       int* oldlis = lis;
-      lis = new int[maxnum];
+      lis = new int[cap];
       
       for(int i = 0; i < oldnum; i++) lis[i] = oldlis[i];
       delete[] oldlis;
@@ -814,9 +824,9 @@ public:
   
   void clear() {
     num=0;
-    maxnum=16;
+    cap=8;
     delete[] lis;
-    lis = new int[maxnum];
+    lis = new int[cap];
   }
 
   String toString() const {
@@ -848,8 +858,8 @@ public:
   
 
 private:
-  int num;
-  int maxnum;
+  int num; // number of elements
+  int cap; // capacity
   int* lis;
 };
 #endif
