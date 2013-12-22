@@ -221,8 +221,11 @@ private:
       local[near].events.add(e);
     }
 
+    // Economize memory after forming the event lists.
+    for (int n = 0; n < leastLocalNodes; n++) local[n].events.economize();
+
     // You'll want to call updateLocal() after this.
-    // However, evenCost() is implemented in the derived class,
+    // However, eventCost() is implemented in the derived class,
     // so cannot be called (even indirectly) from the base class constructor.
   }
 
