@@ -880,35 +880,51 @@ private:
   // Load all files from the list of trajectory files using readTrajFile().
   // readTrajFile() also fills the event buffer and applies the filters.
   void loadAll(const TrajFile* fileList, int fileNum, const String* eventFileList, const int* eventFileSkip, const int* eventFileOffset, int eventFileNum) {
+    const int dispFileMax = 30;
     // Count the number of possible events.
     blockNum = 0;
     eventMax = 1;
+    printf("\nCounting file lines:\n");
     for (int f = 0; f < fileNum; f++) {
-      //printf("%s\n", fileList[f].toString().cs());
-      int n =  countLines(fileList[f].fileName.cs(), colList);
-      //printf("file %s lines %d\n", fileList[f].fileName.cs(), n);
+      //int n =  countLines(fileList[f].fileName.cs(), colList);
+      int n = countLines(fileList[f].fileName.cs());
       eventMax += n/(fileList[f].stride*fileList[f].skip) + 1;
+      
+      if (f < dispFileMax) printf("file %s lines %d\n", fileList[f].fileName.cs(), n);
+      else if (f==dispFileMax) printf("Reading %d more files...\n", fileNum-dispFileMax);
     }
     // Add the event files.
     IndexList eventColList;
     for (int i = 0; i < trajVarNum; i++) eventColList.add(i);
-    for (int f = 0; f < eventFileNum; f++)
-      eventMax += countLines(eventFileList[f].cs(), eventColList)/eventFileSkip[f] + 1;
+    for (int f = 0; f < eventFileNum; f++) {
+      int n = countLines(eventFileList[f].cs());
+      eventMax += n/eventFileSkip[f] + 1;
+      if (f < dispFileMax) printf("file %s lines %d\n", eventFileList[f].cs(), n);
+      else if (f==dispFileMax) printf("Reading %d more files...\n", eventFileNum-dispFileMax);
+    }
+      //eventMax += countLines(eventFileList[f].cs(), eventColList)/eventFileSkip[f] + 1;
 
     printf("Maximum number of events %d\n\n", eventMax);
 
     // Fill the event list.
-    printf("Reading trajectory files:\n");
+    printf("\nReading trajectory files:\n");
     eventNum = 0;
     event = new Event[eventMax];
     for (int f = 0; f < fileNum; f++) {
-      readTrajFile(fileList[f], colList);
-      //printf("Read %d events from file %s\n", n, fileList[f].fileName.cs());
+      //if (f < dispFileMax) printf("Reading trajectory file `%s'\n", fileList[f].fileName.cs());
+      int n = readTrajFile(fileList[f], colList);
+      if (f < dispFileMax) printf("trajFile %s events %d\n", fileList[f].fileName.cs(), n);
+      else if (f==dispFileMax) printf("Reading %d more files...\n", fileNum-dispFileMax);
     }
 
     // Read the event files directly.
-    for (int f = 0; f < eventFileNum; f++)
-      readEventFile(eventFileList[f].cs(), eventFileSkip[f], eventFileOffset[f]);
+    printf("\nReading event files:\n");
+    for (int f = 0; f < eventFileNum; f++) {
+
+      int n = readEventFile(eventFileList[f].cs(), eventFileSkip[f], eventFileOffset[f]);
+      if (f < dispFileMax) printf("eventFile %s events %d\n", eventFileList[f].cs(), n);
+      else if (f==dispFileMax) printf("Reading %d more event files...\n", eventFileNum-dispFileMax);
+    }
 
     // Keep only complete blocks.
     if (blockLen != 1) {
@@ -1527,6 +1543,23 @@ private:
     return l;
   }
 
+  static int countLines(const char* fileName) {
+    // Open the file for reading.
+    FILE* inp = fopen(fileName,"r");
+    if (inp == NULL) {
+      fprintf(stderr,"Couldn't open file `%s' for reading.\n", fileName);
+      exit(-1);
+    }
+
+    char line[STRLEN];
+    int l = 0;
+    while (fgets(line, STRLEN, inp) != NULL) l++;
+    fclose(inp);
+
+    return l;
+  }
+
+
   static void calcStats(const double* data, int n, double& minVal, double& maxVal, double& mean, double& stdev) {
     minVal = data[0];
     maxVal = data[0];
@@ -1833,7 +1866,8 @@ private:
     return l;
   }
 
-  void readEventFile(const char* eventFile, int skip, int offset) {
+  int readEventFile(const char* eventFile, int skip, int offset) {
+    int eventNum0 = eventNum;
     // Open the file for reading.
     FILE* inp = fopen(eventFile,"r");
     if (inp == NULL) {
@@ -1873,7 +1907,9 @@ private:
 	  event[eventNum].del[v] = strtod(tokenList[3*v+1].cs(),NULL);
 	  event[eventNum].del0[v] = strtod(tokenList[3*v+2].cs(),NULL);
 	}
-	event[eventNum].block = eventNum % blockLen;
+	if (numTokens == trajVarNumThree+1) event[eventNum].block = strtod(tokenList[trajVarNumThree].cs(),NULL);
+	else event[eventNum].block = eventNum;
+	//event[eventNum].block = eventNum/blockLen;
 	eventNum++;
       }
       e++;
@@ -1881,6 +1917,7 @@ private:
       // Next line.
     }
     fclose(inp);
+    return eventNum - eventNum0;
   }
 
 
