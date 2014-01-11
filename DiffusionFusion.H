@@ -1801,11 +1801,13 @@ private:
       if (event[e].block != currBlock) {
 	// New block.
 	// Was the last block a complete?
-	// We allow blocks that are a multiple of blockLen
-	if (currCount % blockLen == 0) {
+	// Try to get the largest number of complete blocks,
+	// allowing the block number to be greater than blockLen
+	int readBlocks = currCount/blockLen;
+	if (readBlocks > 0) {
 	  // This block is complete.
 	  // Slide it down in the event buffer, possibly overwriting incomplete blocks.
-	  for (int i = 0; i < blockLen; i++) {
+	  for (int i = 0; i < readBlocks*blockLen; i++) {
 	    event[en] = event[e-blockLen+i];
 	    en++;
 	  }
