@@ -1801,7 +1801,8 @@ private:
       if (event[e].block != currBlock) {
 	// New block.
 	// Was the last block a complete?
-	if (currCount == blockLen) {
+	// We allow blocks that are a multiple of blockLen
+	if (currCount % blockLen == 0) {
 	  // This block is complete.
 	  // Slide it down in the event buffer, possibly overwriting incomplete blocks.
 	  for (int i = 0; i < blockLen; i++) {
