@@ -1907,7 +1907,7 @@ private:
 	  event[eventNum].del[v] = strtod(tokenList[3*v+1].cs(),NULL);
 	  event[eventNum].del0[v] = strtod(tokenList[3*v+2].cs(),NULL);
 	}
-	if (numTokens == trajVarNumThree+1) event[eventNum].block = strtod(tokenList[trajVarNumThree].cs(),NULL);
+	if (numTokens == trajVarNumThree+1) event[eventNum].block = atoi(tokenList[trajVarNumThree].cs());
 	else event[eventNum].block = eventNum;
 	//event[eventNum].block = eventNum/blockLen;
 	eventNum++;
