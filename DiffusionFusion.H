@@ -1805,10 +1805,11 @@ private:
 	// allowing the block number to be greater than blockLen
 	int readBlocks = currCount/blockLen;
 	if (readBlocks > 0) {
-	  // This block is complete.
-	  // Slide it down in the event buffer, possibly overwriting incomplete blocks.
-	  for (int i = 0; i < readBlocks*blockLen; i++) {
-	    event[en] = event[e-blockLen+i];
+	  // These blocks is complete.
+	  // Slide them down in the event buffer, possibly overwriting incomplete blocks.
+	  int contigEvents = readBlocks*blockLen;
+	  for (int i = 0; i < contigEvents; i++) {
+	    event[en] = event[e-currCount+i];
 	    en++;
 	  }
 	  newBlockNum++;
@@ -1822,18 +1823,19 @@ private:
       //printf("block %d current count %d\n", event[e].block, currCount);
     }
 
-    // Try to keep the last block.
-    if (currCount == blockLen) {
-      // This block is complete.
-      // Slide it down in the event buffer, possibly overwriting incomplete blocks.
+    // Try to keep the last blocks.
+    int readBlocks = currCount/blockLen;
+    if (readBlocks > 0) {
+      // These blocks is complete.
+      // Slide them down in the event buffer, possibly overwriting incomplete blocks.
       int e = eventNum;
-      for (int i = 0; i < blockLen; i++) {
-	event[en] = event[e-blockLen+i];
+      int contigEvents = readBlocks*blockLen;
+      for (int i = 0; i < contigEvents; i++) {
+	event[en] = event[e-currCount+i];
 	en++;
       }
       newBlockNum++;
     }
-
     // The new number of events.
     eventNum = en;
 
