@@ -299,7 +299,7 @@ public:
     fprintf(stdout, "\t*Note: -global permits parameters that affect all nodes.\n");
     fprintf(stdout, "\ntrajCost ccgPmf|langevinExp field0 field1... -kt k_BT -`varName' costVarName -leastLocal leastLocalField\n");
     fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
-    fprintf(stdout, "\nprior scale|known|smooth field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension]\n");
+    fprintf(stdout, "\nprior scale|known|smooth field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension] [-start startingFieldIndex] [-end endingFieldIndex]\n");
     fprintf(stdout, "\ndump events|fields|distro|best|eventCost dumpFile\n");
     fprintf(stdout, "\t*Note: A '%%' in dumpFile is substituted with 'output'.\n");
   }
@@ -1337,6 +1337,12 @@ private:
 	  priorList[pi]->setRefField(fieldList[f]);
 	} else if (opt == "err") {
 	  uniformErr = strtod(val.cs(), NULL);
+	} else if (opt == "start") {
+	  if ( !priorList[pi]->setStartIndex(atoi(val.cs())) ) 
+	    fprintf(stderr,"ERROR `prior known' (%d): Index %s outside of field bounds\n", pi, val.cs());
+	} else if (opt == "end") {
+	  if ( !priorList[pi]->setEndIndex(atoi(val.cs())) ) 
+	    fprintf(stderr,"ERROR `prior known' (%d): Index %s outside of field bounds\n", pi, val.cs());
 	} else {
 	  fprintf(stderr, "ERROR 'prior known' Unrecognized option `%s'.\n", opt.cs());
 	  exit(-1);
@@ -1364,6 +1370,13 @@ private:
 	  priorList[pi]->setGradStd(strtod(val.cs(),NULL));
 	} else if (opt == "dim") {
 	  priorList[pi]->setGradDim(atoi(val.cs()));
+	  priorList[pi]->setGradDim(atoi(val.cs()));
+	} else if (opt == "start") {
+	  if ( !priorList[pi]->setStartIndex(atoi(val.cs())) ) 
+	    fprintf(stderr,"ERROR `prior smooth' (%d): Index %s outside of field bounds\n", pi, val.cs());
+	} else if (opt == "end") {
+	  if ( !priorList[pi]->setEndIndex(atoi(val.cs())) ) 
+	    fprintf(stderr,"ERROR `prior smooth' (%d): Index %s outside of field bounds\n", pi, val.cs());
 	} else {
 	  fprintf(stderr,"ERROR `prior smooth' (%d): Unrecognized option `%s'\n", pi, opt.cs());
 	  printUsage();

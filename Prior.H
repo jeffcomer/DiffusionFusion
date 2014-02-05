@@ -13,10 +13,14 @@ class Prior {
   Field* refField; // a locally stored reference field int gradDim;
   int gradDim;
   double gradVar;
+  int startIndex, endIndex;
 
 public:
   Prior(String typeName, const Field* field0, int fieldId0) :
     field(field0), type(-1), fieldId(fieldId0), refField(NULL),  gradDim(0), gradVar(-1.0) {
+
+    startIndex = 0;
+    endIndex = field->length() - 1;
 
     type = typeIndex(typeName);
     if (type < 0) {
@@ -47,6 +51,21 @@ public:
     }
   }
 
+  bool setStartIndex(int ind) {
+    if (ind >= 0 && ind < field->length()) {
+      startIndex = ind;
+      return true;
+    }
+    return false;
+  }
+  bool setEndIndex(int ind) {
+    if (ind >= 0 && ind < field->length()) {
+      endIndex = ind;
+      return true;
+    }
+    return false;
+  }
+
   void writeRefField(String fileName) const {
     if (refField != NULL) {
       refField->write(fileName.cs());
@@ -70,6 +89,7 @@ public:
     if (gradVar < 0.0) return -1.0;
     return sqrt(gradVar);
   }
+
 
   static const int typeNum = 3;
   static const int scaleType = 0;
@@ -113,7 +133,7 @@ public:
       // The known values prior.
     case knownType:
 #pragma omp parallel for reduction(+:cost)
-      for (int i = 0; i < n; i++) {
+      for (int i = startIndex; i <= endIndex; i++) {
 	double err = refField->getErr(i);
 	double dv = field->get(i) - refField->get(i);
 	
@@ -125,8 +145,10 @@ public:
 
       // The smoothness prior.
     case smoothType:
+      // A pair is considered valid for the smoothness prior when the node with
+      // the larger index is consistent with startIndex <= index <= endIndex.
 #pragma omp parallel for reduction(+:cost)
-      for (int i = 0; i < n; i++) {
+      for (int i = startIndex; i <= endIndex; i++) {
 	int i0 = field->prevIndex(i, gradDim);
 	//printf("gradDim %d i0 %d\n", gradDim, i0);
 	// A negative value means nothing to calculate.
@@ -168,7 +190,7 @@ public:
       currDv = trialMove.trialVal - refV;
 	
       // We'll use negative errors to represent no restraints.
-      if (err >= 0.0)
+      if (err >= 0.0 && i >= startIndex && i <= endIndex )
 	return 0.5*(currDv*currDv - lastDv*lastDv)/(err*err);
       else return 0.0;
 
@@ -179,9 +201,11 @@ public:
       i1 = trialMove.node;
       i0 = field->prevIndex(i1, gradDim);
       i2 = field->nextIndex(i1, gradDim);
-
+      // A pair is considered valid for the smoothness prior when the node with
+      // the larger index is consistent with startIndex <= index <= endIndex.
+      
       // A negative value means nothing to calculate.
-      if (i0 >= 0) {
+      if (i0 >= 0 && i1 >= startIndex && i1 <= endIndex ) {
 	double dx = field->spacing(i0, gradDim);
 	double v0 = field->get(i0);
 	double lastDv = trialMove.lastVal - v0;
@@ -190,7 +214,7 @@ public:
       }
 
       // A negative value means nothing to calculate.
-      if (i2 >= 0) {
+      if (i2 >= 0 && i2 >= startIndex && i2 <= endIndex ) {
 	double dx = field->spacing(i1, gradDim);
 	double v2 = field->get(i2);
 	double lastDv = v2 - trialMove.lastVal;
