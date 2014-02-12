@@ -238,6 +238,7 @@ public:
 
     // Output trajectory information.
     printEventStats();
+    if (blockLen > 1) printBlockStats();
     if (dumpFile[dumpEvents].length() > 0) writeEvents(dumpFile[dumpEvents]);
  
     printf("\nPreparing fields.\n");
@@ -287,7 +288,7 @@ public:
     fprintf(stdout, "\t*Note: Replacing the column index with a period `.' makes a variable of all zeros.\n");
     fprintf(stdout, "\t*Note: Organizing the data into contiguous blocks, as effected by -block, is useful for intergral methods.\n");
     fprintf(stdout, "\t*Note: An important restriction is that the coordinates must be given in the order of the axes of the fields.");
-    fprintf(stdout, "\t E.g, the first -coor is assumed to the primary direction in all fields.\n");
+    fprintf(stdout, "\t e.g., the first -coor is assumed to the primary direction in all fields.\n");
     fprintf(stdout, "\nload trajFile [-stride dataStride] [-skip eventSkip] [-minVar colName -minVal val] [-maxVar colName -maxVal val] [-scaleVar colName -scaleVal val] [-periodicVar col -periodicMin qMin -periodicMax qMax] [-pos init|mid|final]\n");
     //fprintf(stdout, "\t*Note: -minVal and -maxVal filters apply to the initial of position of an event\n");
     fprintf(stdout, "\t*Note: -stride changes the time between frames, while -skip\n\t\tthrows out events after the interval has been calculated.\n");
@@ -297,7 +298,7 @@ public:
     fprintf(stdout, "\nfield fieldName fieldType -step mcStep [-f initialFileName] [-periodic true|false] [-n numEntries] [-init initialValue] [-minVal val] [-maxVal val] [-var colName] [-err errorFile] [-outPmf force|prob] [-global true|false]\n");
     fprintf(stdout, "\t*Note: -outPmf force|prob allows you to write the negative integral\n\t\tor -kT log(prob), respectively, in addition writing the\n\t\tfield in the normal way.\n");
     fprintf(stdout, "\t*Note: -global permits parameters that affect all nodes.\n");
-    fprintf(stdout, "\ntrajCost ccgPmf|langevinExp field0 field1... -kt k_BT -`varName' costVarName -leastLocal leastLocalField\n");
+    fprintf(stdout, "\ntrajCost ccg|ccgPmf|integral|langevinExp field0 field1... -kt k_BT -`varName' costVarName -leastLocal leastLocalField\n");
     fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
     fprintf(stdout, "\nprior scale|known|smooth field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension] [-start startingFieldIndex] [-end endingFieldIndex]\n");
     fprintf(stdout, "\ndump events|fields|distro|best|eventCost dumpFile\n");
@@ -1156,9 +1157,9 @@ private:
     if (leastLocal < 0) leastLocal = tcFieldSel.get(0);
 
     // Initialize the trajectory cost computer.
-    if (type == "ccgPmf") {
+    if (type == "ccgPmf"  || type == "pmf") {
       trajCost = new TrajComerPmf((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-    } else if (type == "ccg" || type == "pmf") {
+    } else if (type == "ccg") {
        trajCost = new TrajComer((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "langevin" || type == "bbkPmf") {
       trajCost = new TrajLangevin((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
@@ -2003,6 +2004,56 @@ public:
       printf(" max %.6g", varMax);
       printf(" mean %.6g", mean);
       printf(" std %.6g\n", std);
+
+      printf("  DELTA %s", trajVarName[v].cs());
+      mean = delSum/n;
+      std = sqrt( (delSumSq - delSum*delSum/n)/(n-1) );
+      printf(" min %.6g", delMin);
+      printf(" max %.6g", delMax);
+      printf(" mean %.6g", mean);
+      printf(" std %.6g\n", std);
+    }
+  }
+
+  void printBlockStats() {
+    const int n = blockNum;
+
+    printf("\nBLOCK STATISTICS\n");
+    printf("BLOCK %d\n", n);
+    if (n == 0) return;
+
+    for (int v = 0; v < trajVarNum; v++) {
+      // Initialize the statistics for the first block.
+      double delMin = -1;
+      double delMax = -1;
+      double delSum = 0.0;
+      double delSumSq = 0.0;
+      double mean, std;
+
+      // Collect the statistics.
+      for (int b = 0; b < n; b++) {
+	int e0 = b*blockLen;
+
+	// Calculate the block sums.
+	double blockDelSum = 0.0;
+	for (int eb = 0; eb < blockLen; eb++) {
+	  int e = eb + e0;
+	  blockDelSum += event[e].del[v];
+	}
+
+	// Min and max.
+	if (b == 0) {
+	  delMin = blockDelSum;
+	  delMax = blockDelSum;
+	} else {
+	  if (blockDelSum < delMin) delMin = blockDelSum;
+	  if (blockDelSum > delMax) delMax = blockDelSum;
+	}
+
+	// For the mean and std.
+	delSum += blockDelSum;
+	delSumSq += blockDelSum*blockDelSum;
+      }
 
       printf("  DELTA %s", trajVarName[v].cs());
       mean = delSum/n;
