@@ -1,6 +1,6 @@
 // Author: Jeff Comer <jeffcomer at gmail>
-#ifndef TRAJINTEGRAL_H
-#define TRAJINTEGRAL_H
+#ifndef TRAJINTEGRALFORCE_H
+#define TRAJINTEGRALFORCE_H
 
 #include "useful.H"
 #include "Field.H"
@@ -9,7 +9,7 @@
 #include "Event.H"
 #include "TrajCostComputer.H"
 
-class TrajIntegralPmf : public TrajCostComputer {
+class TrajIntegralForce : public TrajCostComputer {
 private:
   const Piecewise1d* diffuse;
   const Piecewise1d* force;
@@ -21,22 +21,22 @@ private:
   int blockNum;
 
 public:
-  TrajIntegral(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, int blockLen) :
+  TrajIntegralForce(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, int blockLen) :
     TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 4, blockLen), blockNodeList(NULL) {
 
     if (tcFieldNum != 2) {
-      fprintf(stderr, "ERROR trajCost ccgPmf takes two fields: (0) diffusivity (1) pmf\n");
+      fprintf(stderr, "ERROR trajCost integralForce takes two fields: (0) diffusivity (1) force\n");
       exit(-1);
     }
 
     diffuse = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(0)]);
     if (diffuse == NULL) {
-      fprintf(stderr,"ERROR trajCost ccgPmf requires field type linear or cubic.\n");
+      fprintf(stderr,"ERROR trajCost integralForce requires field type linear or cubic.\n");
       exit(-1);
     }
-    pmf = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(1)]);
-    if (pmf == NULL) {
-      fprintf(stderr,"ERROR trajCost ccgPmf requires field type linear or cubic.\n");
+    force = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(1)]);
+    if (force == NULL) {
+      fprintf(stderr,"ERROR trajCost integralForce requires field type linear or cubic.\n");
       exit(-1);
     }
 
@@ -50,7 +50,7 @@ public:
     cloneLast();
   }
 
-  ~TrajIntegral() {
+  ~TrajIntegralForce() {
     if (blockNodeList != NULL) {
       delete[] blockNodeList;
       delete[] blockLastCost;
@@ -87,7 +87,7 @@ public:
     case 0:
       return String("diffusivity");
     case 1:
-      return String("pmf");
+      return String("force");
     default:
       return String("UNKNOWN");
     }
@@ -112,7 +112,7 @@ public:
 
       // Calculate the force and diffusivity at this time.
       // Sum of forceBias and forceSys.
-      double frc = event[e].var[FB] - pmf->computeGrad(event[e].var[X]);
+      double frc = event[e].var[FB] + force->computeVal(event[e].var[X]);
       double dif, gradDif;
       diffuse->computeValGrad(event[e].var[X], dif, gradDif);
 
@@ -196,7 +196,7 @@ public:
     // the blocks instead.
 
     if (e < 0 || e > blockNum) {
-      fprintf(stderr,"ERROR eventCost called for TrajIntegral with e greater than the number of blocks. TrajIntegral gives the cost for a block of events, not for the events themselves.\n");
+      fprintf(stderr,"ERROR eventCost called for TrajIntegralForce with e greater than the number of blocks. TrajIntegralForce gives the cost for a block of events, not for the events themselves.\n");
       exit(-1);
     }
     return blockCost(e);

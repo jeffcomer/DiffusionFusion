@@ -25,18 +25,18 @@ public:
     TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 4, blockLen), blockNodeList(NULL) {
 
     if (tcFieldNum != 2) {
-      fprintf(stderr, "ERROR trajCost ccgPmf takes two fields: (0) diffusivity (1) pmf\n");
+      fprintf(stderr, "ERROR trajCost integralPmf takes two fields: (0) diffusivity (1) pmf\n");
       exit(-1);
     }
 
     diffuse = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(0)]);
     if (diffuse == NULL) {
-      fprintf(stderr,"ERROR trajCost ccgPmf requires field type linear or cubic.\n");
+      fprintf(stderr,"ERROR trajCost integralPmf requires field type linear or cubic.\n");
       exit(-1);
     }
     pmf = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(1)]);
     if (pmf == NULL) {
-      fprintf(stderr,"ERROR trajCost ccgPmf requires field type linear or cubic.\n");
+      fprintf(stderr,"ERROR trajCost integralPmf requires field type linear or cubic.\n");
       exit(-1);
     }
 

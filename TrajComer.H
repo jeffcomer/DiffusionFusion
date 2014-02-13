@@ -4,14 +4,15 @@
 
 #include "useful.H"
 #include "Field.H"
+#include "PiecewiseLinear.H"
 #include "PiecewiseCubic.H"
 #include "Event.H"
 #include "TrajCostComputer.H"
 
 class TrajComer : public TrajCostComputer {
 private:
-  const PiecewiseCubic* diffuse;
-  const PiecewiseCubic* force;
+  const Piecewise1d* diffuse;
+  const Piecewise1d* force;
   int T, X, D, FB;
 
 public:
@@ -23,14 +24,14 @@ public:
       exit(-1);
     }
 
-    diffuse = dynamic_cast<const PiecewiseCubic*>(fieldList[fieldSel.get(0)]);
+    diffuse = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(0)]);
     if (diffuse == NULL) {
-       fprintf(stderr,"ERROR trajCost ccg requires field type cubic.\n");
+       fprintf(stderr,"ERROR trajCost ccg requires field type linear or cubic.\n");
        exit(-1);
     }
-    force = dynamic_cast<const PiecewiseCubic*>(fieldList[fieldSel.get(1)]);
+    force = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(1)]);
     if (force == NULL) {
-       fprintf(stderr,"ERROR trajCost ccg requires field type cubic.\n");
+       fprintf(stderr,"ERROR trajCost ccg requires field type linear or cubic.\n");
        exit(-1);
     }
 
@@ -101,7 +102,14 @@ public:
     diffuse->computeValGrad(event[e].var[X], dif, gradDif);
 
     // Add the cost of this event.
-    return ccgCost(event[e].del[T], event[e].del[D], frc, dif, gradDif);
+    double cost = ccgCost(event[e].del[T], event[e].del[D], frc, dif, gradDif);
+    if (cost != cost) {
+      fprintf(stderr,"ERROR eventCost NaN\n");
+      fprintf(stderr,"NAN event %d x %g dt %g dx %g frc %g dif %g\n",
+ 	      e, event[e].var[X], event[e].del[T], event[e].del[D], frc, dif);
+      exit(-1);
+    }
+    return cost;
   }
 };
 
