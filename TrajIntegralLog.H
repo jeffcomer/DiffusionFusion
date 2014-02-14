@@ -142,10 +142,9 @@ public:
 
     // Check for NaN.
     if (cost != cost) {
-      fprintf(stderr,"ERROR blockCost NaN\n");
+      fprintf(stderr,"WARNING blockCost NaN\n");
       fprintf(stderr,"NAN block %d dispSum %g meanSum %g varSum %g\n",
 	      b, dispSum, meanSum, varSum);
-      exit(-1);
     }
 
     return cost;

@@ -386,7 +386,7 @@ public:
 	    deltaCost += priorList[p]->deltaCost(trialMove);
 
 	  // Metropolis accept or reject.
-	  if (monte->metropolis(deltaCost)) {
+	  if (!(deltaCost != deltaCost) && monte->metropolis(deltaCost)) {
 	    // Accept
 	    lastCost += deltaCost;
 	    fieldAccept[trialMove.fieldId]++;
