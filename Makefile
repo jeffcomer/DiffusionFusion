@@ -8,6 +8,9 @@ gnu:
 linux:
 	g++ -O3 -Wall -mfpmath=sse -DHAVE_INLINE ${ROOT}.C -o ${ROOT}_LINUX -lm -lgsl -lgslcblas -fopenmp
 
+linuxdebug:
+	g++ -ggdb -DFUSION_DEBUG  -Wall -DHAVE_INLINE ${ROOT}.C -o ${ROOT}_LINUX -lm -lgsl -lgslcblas -fopenmp
+
 stable:
 	g++ -O1 -Wall ${ROOT}.C -o ${ROOT} -lm -lgsl -lgslcblas -fopenmp
 
@@ -25,7 +28,7 @@ mac:
 
 mac_debug:
 macdebug:
-	g++ -I/opt/local/include -L/opt/local/lib -ggdb -Wall ${ROOT}.C -o ${ROOT} -lm -lgsl -lgslcblas -fopenmp
+	g++ -I/opt/local/include -L/opt/local/lib -DFUSION_DEBUG -ggdb -Wall ${ROOT}.C -o ${ROOT} -lm -lgsl -lgslcblas -fopenmp
 
 debug_no_gsl:
 	g++ -DNO_GSL -ggdb -Wall ${ROOT}.C -o ${ROOT} -lm -fopenmp

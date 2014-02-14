@@ -122,10 +122,12 @@ public:
       varSum += dif;
 
 #ifdef FUSION_DEBUG
-    printf("dt %g dx %g frc %g dif %g gradDif %g\n", dt, dispSum, frc, dif, gradDif);
+      printf("dt %g dx %g frc %g dif %g gradDif %g\n", dt, dispSum, frc, dif, gradDif);
+      //if (b > 1 && b < 12) printf("b %d eb %d disp %g dispSum %g meanSum %g varSum %g\n", b, eb, event[e].del[D], dispSum, meanSum, varSum);
 #endif
     }
     // These are the mean and variance sums.
+    //meanSum *= dt/blockLen; // An ad hoc fix for errors in the PMF.
     meanSum *= dt;
     varSum *= 2.0*dt;
     double gtNumer0 = dispSum - meanSum;
