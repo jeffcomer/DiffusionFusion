@@ -93,6 +93,7 @@ private:
   IndexList colList;
   int blockLen;
   int blockNum;
+  int blockInd;
 
   // List of events.
   int eventMax;
@@ -126,7 +127,7 @@ private:
 
   TrajCostComputer* trajCost;
 public:
-  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), blockNum(0), eventMax(1), eventNum(0), event(NULL),  fieldNum(0), fieldList(NULL), priorNum(0), priorList(NULL), monte(NULL), mcCycles(0) {
+  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), blockNum(0), blockInd(0), eventMax(1), eventNum(0), event(NULL),  fieldNum(0), fieldList(NULL), priorNum(0), priorList(NULL), monte(NULL), mcCycles(0) {
     // Read the configuration file.
     cmdNum = countLines(cmdFile.cs(), IndexList(0));
     cmdList = new CommandLineReader*[cmdNum];
@@ -887,7 +888,7 @@ private:
   void loadAll(const TrajFile* fileList, int fileNum, const String* eventFileList, const int* eventFileSkip, const int* eventFileOffset, int eventFileNum) {
     const int dispFileMax = 30;
     // Count the number of possible events.
-    blockNum = 0;
+    blockInd = 0;
     eventMax = 1;
     printf("\nCounting file lines:\n");
     for (int f = 0; f < fileNum; f++) {
@@ -934,8 +935,8 @@ private:
     // Keep only complete blocks.
     if (blockLen != 1) {
       printf("There are %d events before blocking.\n", eventNum);
-      int bn = blockEvents();
-      printf("Kept %d complete event blocks of block length %d\n", bn, blockLen);
+      blockEvents();
+      printf("Kept %d complete event blocks of block length %d\n", blockNum, blockLen);
       printf("There are %d events after blocking.\n", eventNum);
     }
   }
@@ -1722,7 +1723,7 @@ private:
       // blockCounter is the count of valid strided entries.
       blockCounter++;
       if (blockCounter >= blockLen) {
-	blockNum++;
+	blockInd++;
 	blockCounter = 0;
       }
 
@@ -1733,7 +1734,7 @@ private:
       // Read the current variable values and set varLast.
       for (int c = 0; c < columns; c++) {
 	int col = colList.get(c);
-	event[eventNum].block = blockNum;
+	event[eventNum].block = blockInd;
 	// Negative columns are set to zero.
 	if (col < 0) {
 	  event[eventNum].var[c] = 0.0;
@@ -1815,13 +1816,13 @@ private:
       fprintf(stderr, "eventNum %d eventMax %d\n", eventNum, eventMax);
       exit(-1);
     }
+    blockInd++;
 
-    blockNum++;
     return eventNum - eventNum0;
   }
 
   // Remove series of events that do not conform to the block structure.
-  int blockEvents() {
+  void blockEvents() {
     int currBlock = -1;
     int currCount = 0;
     int en = 0;
@@ -1868,7 +1869,7 @@ private:
     // The new number of events.
     eventNum = en;
 
-    return newBlockNum;
+    blockNum = newBlockNum;
   }
 
   static int readFileFile(const char* fileFile, String* fileList, int readMax) {
@@ -2034,7 +2035,7 @@ public:
     const int n = blockNum;
 
     printf("\nBLOCK STATISTICS\n");
-    printf("BLOCK %d\n", n);
+    printf("BLOCKNUM %d\n", n);
     if (n == 0) return;
 
     for (int v = 0; v < trajVarNum; v++) {
@@ -2052,7 +2053,8 @@ public:
 	// Calculate the block sums.
 	double blockDelSum = 0.0;
 	for (int eb = 0; eb < blockLen; eb++) {
-	  int e = eb + e0;
+	  int e = e0 + eb;
+	  //printf("%d %d\n", b, e);
 	  blockDelSum += event[e].del[v];
 	}
 
