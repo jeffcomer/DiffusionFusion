@@ -30,6 +30,7 @@
 #include "TrajIntegral.H"
 #include "TrajIntegralForce.H"
 #include "TrajIntegralLog.H"
+#include "TrajIntegralForceOrder.H"
 #include "TrajComer2d2d.H"
 //#include "TrajMobility.H"
 //#include "TrajCylinder.H"
@@ -1189,6 +1190,9 @@ private:
     } else if (type == "integralLog") {
       trajCost = new TrajIntegralLog((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
       if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegralLog is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
+    } else if (type == "integralForceOrder") {
+      trajCost = new TrajIntegralForceOrder((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
+      if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegralForceOrder is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
       //    } else if (type == "ccgCyl" || type == "cylinder") {
       //trajCost = new TrajCylinder((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, trajVarNum);
     // } else if (type == "mobility") {

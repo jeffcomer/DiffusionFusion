@@ -118,7 +118,25 @@ public:
   // This is usually the number of events, but can
   // be overloaded to the number of blocks.
   virtual int unitNum() const { return eventNum; }
-  
+
+  static bool nanCheck(double cost, char unitType, int index, double disp, double mean, double mean1, double var) {
+    if (cost != cost) {
+      fprintf(stdout,"WARNING cost NaN\n");
+
+      switch(unitType) {
+      case 'e':
+	fprintf(stdout,"NAN event %d disp %g frc %g gradDif %g dif %g\n",index,disp,mean,mean1,var);
+	break;
+      case 'b':
+	fprintf(stdout,"NAN block %d disp %g mean %g var %g\n",index,disp,mean,var);
+	break;
+
+      }
+      return false;
+    }
+    return true;
+  }
+
   // Calculate the cost over all nodes.
   virtual double calcCost() {
     long double cost = 0.0;

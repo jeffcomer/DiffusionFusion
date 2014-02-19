@@ -142,6 +142,26 @@ public:
     return (3.0*v3[home]*w2 + 2.0*v2[home]*w + v1[home])/dr;
   }
 
+ double computeGradGrad(double d) const {
+    int home;
+
+    if (periodic) {
+      d = wrap(d);
+      home = int(floor((d - r0)/dr));
+    } else {
+      home = int(floor((d - r0)/dr));
+
+      if (home < 0) return 0.0;
+      if (home >= n) return 0.0;
+    }
+
+    double homeR = home*dr + r0;
+    double w = (d - homeR)/dr;
+   
+    // Interpolate.
+    return (6.0*v3[home]*w + 2.0*v2[home])/(dr*dr);
+  }
+
   bool computeValGrad(double d, double& val, double& grad) const {
     int home;
 

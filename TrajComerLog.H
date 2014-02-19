@@ -105,11 +105,12 @@ public:
 
     // Add the cost of this event.
     double cost = ccgCost(event[e].del[T], event[e].del[D], frc, dif, gradDif);
-    if (cost != cost) {
-      fprintf(stderr,"WARNING eventCost NaN\n");
-      fprintf(stderr,"NAN event %d x %g dt %g dx %g frc %g dif %g\n",
- 	      e, event[e].var[X], event[e].del[T], event[e].del[D], frc, dif);
-    }
+
+     // Check for NaN.
+#ifdef FUSION_DEBUG
+    nanCheck(cost,'e',event[e].del[D],frc,gradDif,dif);
+#endif
+
     return cost;
   }
 };

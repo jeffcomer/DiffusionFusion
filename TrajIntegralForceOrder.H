@@ -1,6 +1,6 @@
 // Author: Jeff Comer <jeffcomer at gmail>
-#ifndef TRAJINTEGRALLOG_H
-#define TRAJINTEGRALLOG_H
+#ifndef TRAJINTEGRALFORCEORDER_H
+#define TRAJINTEGRALFORCEORDER_H
 
 #include "useful.H"
 #include "Field.H"
@@ -9,9 +9,9 @@
 #include "Event.H"
 #include "TrajCostComputer.H"
 
-class TrajIntegralLog : public TrajCostComputer {
+class TrajIntegralForceOrder : public TrajCostComputer {
 private:
-  const Piecewise1d* logDiffuse;
+  const Piecewise1d* diffuse;
   const Piecewise1d* force;
   int T, X, D, FB;
   // List of all leastLocalField nodes reached in each block and their neighbors.
@@ -21,22 +21,22 @@ private:
   int blockNum;
 
 public:
-  TrajIntegralLog(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, int blockLen) :
+  TrajIntegralForceOrder(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, int blockLen) :
     TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 4, blockLen), blockNodeList(NULL) {
 
     if (tcFieldNum != 2) {
-      fprintf(stderr, "ERROR trajCost IntegralLog takes two fields: (0) diffusivity (1) force\n");
+      fprintf(stderr, "ERROR trajCost IntegralForceOrder takes two fields: (0) diffusivity (1) force\n");
       exit(-1);
     }
 
-    logDiffuse = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(0)]);
-    if (logDiffuse == NULL) {
-      fprintf(stderr,"ERROR trajCost IntegralLog requires field type linear or cubic.\n");
+    diffuse = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(0)]);
+    if (diffuse == NULL) {
+      fprintf(stderr,"ERROR trajCost IntegralForceOrder requires field type linear or cubic.\n");
       exit(-1);
     }
     force = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(1)]);
     if (force == NULL) {
-      fprintf(stderr,"ERROR trajCost IntegralLog requires field type linear or cubic.\n");
+      fprintf(stderr,"ERROR trajCost IntegralForceOrder requires field type linear or cubic.\n");
       exit(-1);
     }
 
@@ -50,7 +50,7 @@ public:
     cloneLast();
   }
 
-  ~TrajIntegralLog() {
+  ~TrajIntegralForceOrder() {
     if (blockNodeList != NULL) {
       delete[] blockNodeList;
       delete[] blockLastCost;
@@ -93,49 +93,53 @@ public:
     }
   }
 
+double blockCost(int b) {
+    const int e0 = b*blockLen;
+    const int blockLen1 = blockLen-1;
+    // Assume that the timestep is the same for the whole block.
+    const double dt = event[e0].del[T];
 
-
-  double blockCost(int b) {
-    int e0 = b*blockLen;
-    // We assume that dt is constant within a block!
-    double dt = event[e0].del[T];
-
-    // We sum over the tiny displacements to avoid wrapping issues.
-    // Apart from wrapping and the possible use of different coordinates for D and X,
-    // dispSum is the difference between the first and last positions.
-    // dispSum = event[(b+1)*blockLen].var[X] - event[b*blockLen].var[X]
+    // The value and derivative of the integrand beta*D(x,t)*f(x,t) + grad D(x,t)
+    double* integ = new double[blockLen];
     double dispSum = 0.0; 
-    double meanSum = 0.0;
     double varSum = 0.0;
     for (int eb = 0; eb < blockLen; eb++) {
       int e = eb + e0;
 
       // Calculate the force and diffusivity at this time.
-      // Sum of forceBias and forceSys.
+      double dif, gradDif;
+      diffuse->computeValGrad(event[e].var[X], dif, gradDif);
       double frc = event[e].var[FB] + force->computeVal(event[e].var[X]);
-      double logDif, gradLogDif;
-      logDiffuse->computeValGrad(event[e].var[X], logDif, gradLogDif);
-      double dif = exp(logDif);
-      double gradDif = dif*gradLogDif;
 
-      // Accumulate the sums.
-      dispSum += event[e].del[D];
-      meanSum += beta*dif*frc + gradDif;
-      varSum += dif;
+      // Get each integrand value.
+      integ[eb] = beta*dif*frc + gradDif;
 
-#ifdef FUSION_DEBUG
-      printf("dt %g dx %g frc %g dif %g gradDif %g\n", dt, dispSum, frc, dif, gradDif);
-      //if (b > 1 && b < 12) printf("b %d eb %d disp %g dispSum %g meanSum %g varSum %g\n", b, eb, event[e].del[D], dispSum, meanSum, varSum);
-#endif
+      // Accumulate the displacement to avoid wrapping issues.
+      // Note! We integrate only from 0 to blockLen-1.
+      if (eb < blockLen1) {
+	dispSum += event[e].del[D];
+	varSum += dif;
+      }
     }
+
+    // Integrate by Simpson's rule.
+    // Note! We integrate only from 0 to blockLen-1.
+    double meanSum = integ[0] + integ[blockLen1]; // First and last elements.
+    // Trapezoid
+    for (int eb = 1; eb < blockLen1; eb++) meanSum += 2.0*integ[eb];
+    meanSum *= 0.5*dt;
+    // Simpson's
+    //for (int eb = 1; eb < blockLen1; eb+=2) meanSum += 4.0*integ[eb] + 2.0*integ[eb+1];
+    //meanSum *= dt/3.0;
+    
+
+    delete[] integ;
+
     // These are the mean and variance sums.
-    //meanSum *= dt/blockLen; // An ad hoc fix for errors in the PMF.
-    meanSum *= dt;
     varSum *= 2.0*dt;
     double gtNumer0 = dispSum - meanSum;
     gtNumer = gtNumer0;
     gtVar = varSum;
-
 
     // Here is the integrated cost of the block
     double cost = 0.5*log(2.0*M_PI*varSum) + 0.5*(gtNumer0*gtNumer0)/varSum;
@@ -197,7 +201,7 @@ public:
     // the blocks instead.
 
     if (e < 0 || e > blockNum) {
-      fprintf(stderr,"ERROR eventCost called for TrajIntegralLog with e greater than the number of blocks. TrajIntegralLog gives the cost for a block of events, not for the events themselves.\n");
+      fprintf(stderr,"ERROR eventCost called for TrajIntegralForceOrder with e greater than the number of blocks. TrajIntegralForceOrder gives the cost for a block of events, not for the events themselves.\n");
       exit(-1);
     }
     return blockCost(e);

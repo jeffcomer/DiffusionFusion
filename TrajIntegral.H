@@ -137,12 +137,9 @@ public:
     double cost = 0.5*log(2.0*M_PI*varSum) + 0.5*(gtNumer0*gtNumer0)/varSum;
 
     // Check for NaN.
-    if (cost != cost) {
-      fprintf(stderr,"ERROR blockCost NaN\n");
-      fprintf(stderr,"NAN block %d dispSum %g meanSum %g varSum %g\n",
-	      b, dispSum, meanSum, varSum);
-      exit(-1);
-    }
+#ifdef FUSION_DEBUG
+    nanCheck(cost,'b',dispSum,meanSum,meanSum,varSum);
+#endif
 
     return cost;
   }
