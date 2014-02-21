@@ -13,7 +13,7 @@ public:
 
 class TrajCostComputer {
 protected:
-  const double beta;
+  const double beta; // 1/kT
   // The fields that are involved in the trajCost.
   const Field** fieldList;
   const int tcFieldNum;
