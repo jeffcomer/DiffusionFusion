@@ -137,8 +137,8 @@ public:
   // Functions that the derived classes must implement.
   // Neighbors must include node j.
   virtual IndexList neighbors(int j) const = 0;
-  // Include more neighbors.
-  virtual IndexList neighborsWide(int j) const = 0;
+  // Include the minimal neighbors.
+  virtual IndexList neighborsMinimal(int j) const = 0;
   // Set the value of a node. Is virtual so that interpolants can be updated.
   virtual bool set(int j, double v) = 0;
   // Read the field from its file.

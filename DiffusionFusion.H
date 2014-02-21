@@ -493,6 +493,7 @@ public:
 	  fprintf(stdout, "Are global fields declared with `-global 1'?\n");
 	  fprintf(stdout, "Try setting `-leastLocal'.\n");
 	  fprintf(stdout, "Other options include decreasing `-update' or `-cycle'.\n");
+	  fprintf(stdout, "Could also indicate a bug in the chosen trajCost method.\n");
 	  if (stepsPerCycle == 1)  {
 	    fprintf(stdout, "fieldId %d node %d trialVal %g lastVal %g\n", trialMove.fieldId, trialMove.node, trialMove.trialVal, trialMove.lastVal);
 	    IndexList neigh = fieldList[trialMove.fieldId]->neighbors(trialMove.node);

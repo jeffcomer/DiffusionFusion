@@ -323,7 +323,7 @@ public:
   }
 
   
-  IndexList neighbors(int j) const {
+  IndexList neighborsMinimal(int j) const {
     IndexList ret;
     int jy = j%ny;
     int jx = j/ny;
@@ -355,16 +355,16 @@ public:
     return ret;
   }
 
-  IndexList neighborsWide(int j) const {
+  IndexList neighbors(int j) const {
     IndexList ret;
     int jy = j%ny;
     int jx = j/ny;
     
     if (periodic) {
-      for (int ix = -3; ix <= 3; ix++) {
+      for (int ix = -2; ix <= 2; ix++) {
 	int kx = wrap(jx+ix, nx);
 
-	for (int iy = -3; iy <= 3; iy++) {
+	for (int iy = -2; iy <= 2; iy++) {
 	  int ky = wrap(jy+iy, ny);
 	  ret.add(ky + kx*ny);
 	}
@@ -372,10 +372,10 @@ public:
 
     } else {
       
-      for (int ix = -3; ix <= 3; ix++) {
+      for (int ix = -2; ix <= 2; ix++) {
 	int kx = jx+ix;
 	if (kx < 0 || kx >= nx) continue;
-	for (int iy = -3; iy <= 3; iy++) {
+	for (int iy = -2; iy <= 2; iy++) {
 	  int ky = jy+iy;
 	  if (ky < 0 || ky >= ny) continue;
 	  ret.add(ky + kx*ny);

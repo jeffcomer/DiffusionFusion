@@ -146,6 +146,8 @@ public:
   }
 
   // Calculate the change in cost using the LocalCost array.
+  // Changes to a node in a field affect the events assigned
+  // to that node, as well as those assigned to neighboring nodes.
   virtual double deltaCost(const TrialMove& trialMove) {
       IndexList neigh = leastLocalField->neighbors(trialMove.node);
 
@@ -227,6 +229,9 @@ public:
 private:
   // initLocal assumes that the ith coordinate trajectory variable
   // is aligned with the ith axis of the least local field.
+  // Each event has a single home node.
+  // Changes to a node in a field affect the events assigned
+  // to that node, as well as those assigned to neighboring nodes.
   void initLocal() {
     // Set up the buffers for the cost of each node
     // of the least local field.

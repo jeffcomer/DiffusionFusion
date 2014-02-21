@@ -103,6 +103,7 @@ double blockCost(int b) {
     double* integ = new double[blockLen];
     double dispSum = 0.0; 
     double varSum = 0.0;
+    double meanSum = 0.0;
     for (int eb = 0; eb < blockLen; eb++) {
       int e = eb + e0;
 
@@ -113,25 +114,30 @@ double blockCost(int b) {
 
       // Get each integrand value.
       integ[eb] = beta*dif*frc + gradDif;
+      //printf("block %d eb %d detDx %g dx %g\n", b, eb, dt*integ[eb], event[e].del[D]);
 
       // Accumulate the displacement to avoid wrapping issues.
       // Note! We integrate only from 0 to blockLen-1.
       if (eb < blockLen1) {
 	dispSum += event[e].del[D];
 	varSum += dif;
+	//meanSum += integ[eb];
       }
     }
 
     // Integrate by Simpson's rule.
     // Note! We integrate only from 0 to blockLen-1.
-    double meanSum = integ[0] + integ[blockLen1]; // First and last elements.
+    meanSum = 0.5*(integ[0] + integ[blockLen1]); // First and last elements.
     // Trapezoid
-    for (int eb = 1; eb < blockLen1; eb++) meanSum += 2.0*integ[eb];
-    meanSum *= 0.5*dt;
+    for (int eb = 1; eb < blockLen1; eb++) meanSum += integ[eb];
+    meanSum *= dt;
     // Simpson's
     //for (int eb = 1; eb < blockLen1; eb+=2) meanSum += 4.0*integ[eb] + 2.0*integ[eb+1];
     //meanSum *= dt/3.0;
     
+    // A crude zeroth-order approx.
+    //meanSum *= dt;
+    //meanSum = 0.5*dt*blockLen1*integ[0];
 
     delete[] integ;
 

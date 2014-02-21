@@ -375,10 +375,10 @@ protected:
     IndexList ret;
 
     if (periodic) {
-      for (int k = -2; k <= 2; k++ )
+      for (int k = -2; k <= 1; k++ )
 	ret.add(wrapNode(j+k));
     } else {
-      for (int k = -2; k <= 2; k++ ) {
+      for (int k = -2; k <= 1; k++ ) {
 	int i = j+k;
 	if (i >= 0 && i < n) ret.add(i);
       }
@@ -387,14 +387,14 @@ protected:
     return ret;
   }
 
-  IndexList neighborsWide(int j) const {
+  IndexList neighborsMinimal(int j) const {
     IndexList ret;
 
     if (periodic) {
-      for (int k = -2; k <= 2; k++ )
+      for (int k = -2; k <= 1; k++ )
 	ret.add(wrapNode(j+k));
     } else {
-      for (int k = -2; k <= 2; k++ ) {
+      for (int k = -2; k <= 1; k++ ) {
 	int i = j+k;
 	if (i >= 0 && i < n) ret.add(i);
       }
