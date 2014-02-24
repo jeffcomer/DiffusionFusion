@@ -146,7 +146,7 @@ private:
 
   TrajCostComputer* trajCost;
 public:
-  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), dispFileMax(30), blockNum(0), blockInd(0), eventMax(1), eventNum(0), event(NULL),  fieldNum(0), fieldList(NULL), biasHistoryList(NULL), biasFieldNum(0), biasFieldList(NULL), priorNum(0), priorList(NULL), monte(NULL), mcCycles(0) {
+  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), dispFileMax(30), blockNum(0), blockInd(0), eventMax(1), eventNum(0), event(NULL),  fieldNum(0), fieldList(NULL), biasHistoryList(NULL), totalTrajFileNum(0), biasFieldNum(0), biasFieldList(NULL), priorNum(0), priorList(NULL), monte(NULL), mcCycles(0) {
     // Read the configuration file.
     cmdNum = countLines(cmdFile.cs(), IndexList(0));
     cmdList = new CommandLineReader*[cmdNum];
@@ -364,7 +364,9 @@ public:
     }
 
     if (biasFieldList != NULL) {
-      for (int i = 0; i < biasFieldNum; i++) delete biasFieldList[i];
+      // biasFieldList only points to stuff in biasHistoryList
+      // DO NOT deallocate the pointers in biasFieldList, since they
+      // were just deallocated above.
       delete[] biasFieldList;
     }
 
@@ -831,15 +833,17 @@ private:
     // Load the bias history for each file if necessary.
     // We do not yet support bias histories associated with event files.
     int biasHistoryCount = 0;
-    totalTrajFileNum = fileNum;
     for (int f = 0; f < fileNum; f++) if (fileList[f].biasFile.length()>1) biasHistoryCount++;
     printf("%d trajectory files have an associated bias history.\n", biasHistoryCount);
 
-    if (biasHistoryCount > 1) {
+    if (biasHistoryCount > 0) {
       printf("Reading bias history files:\n");
       // While all files might not have a bias history, the array covers all,
       // with nulls where necessary.
       biasHistoryList = new HistoryReader*[fileNum];
+      totalTrajFileNum = fileNum;
+      // Not all these may be used.
+      for (int f = 0; f < fileNum; f++) biasHistoryList[f] = NULL;
 
       biasFieldNum = 0;
       for (int f = 0; f < fileNum; f++) {
@@ -857,12 +861,11 @@ private:
 	    int changed = biasHistoryList[f]->enforceFullSamples(fileList[f].biasCountFile.cs(), fileList[f].biasFullSamples);
 	    if (f < dispFileMax) printf("Rescaled %d bias forces to imitate the colvars module with fullSamples=%d\n", changed,  fileList[f].biasFullSamples);
 	  }
-
 	  biasFieldNum += biasHistoryList[f]->length();
 
 	  if (f < dispFileMax)
 	    printf("History file %s associated with trajectory file %s has %d bias frames.\n", fileList[f].biasFile.cs(), fileList[f].fileName.cs(), biasHistoryList[f]->length());
-	} else biasHistoryList[f] = NULL;
+	}
       }
 
       // Now we must associate each event with a bias.
@@ -880,7 +883,9 @@ private:
 	int lastFrame = -1;
 	for (int e = fileList[f].eventFirst; e <= fileList[f].eventLast; e++) {
 	  int eventDelta = e - fileList[f].eventFirst;
-	  int histFrame = (eventDelta*histFrameN)/eventN;
+	  //int histFrame = int(eventDelta*histEventRatio + 0.5);
+	  //if (histFrame >= histFrameN) histFrame = histFrameN-1;
+	  int histFrame = (histFrameN*eventDelta)/eventN;
 
 	  if (histFrame != lastFrame) {
 	    // Add a new bias field if necessary.
@@ -890,7 +895,7 @@ private:
 	  }
 
 	  // Link the event to the bias.
-	  event[e].bias = bfn;
+	  event[e].bias = bfn-1;
 	}
       }
     }
@@ -2122,11 +2127,12 @@ public:
     }
     
     fprintf(out, "# BIAS(X)\n");
-    for (int e = 0; e < eventNum; e++)
+    for (int e = 0; e < eventNum; e++) {
       if (event[e].bias >= 0) {
 	double bias = biasFieldList[event[e].bias]->computeZeroOrder(event[e].var[var]);
-	fprintf(out, "%.14g %.14g\n", event[e].var[var], bias);
-      }
+	fprintf(out, "%.14g %.14g %d\n", event[e].var[var], bias, event[e].bias);
+      } else fprintf(out, "%.14g %.14g %d\n", event[e].var[var], 0.0, event[e].bias);
+    }
 
     fclose(out);
     return true;

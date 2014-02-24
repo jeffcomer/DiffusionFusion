@@ -11,8 +11,8 @@ public:
   double del0[varMax]; // last difference in variable
   int block; // the block number
   int serial; // where does the event lie in the input file?
-  int bias; // link to a bias field
-
+  int bias; // link to bias field
+  
   // Organizational parameters put in an unset state.
   Event() : block(-1), serial(-1), bias(-1) {}
 };
