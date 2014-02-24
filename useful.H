@@ -101,6 +101,11 @@ public:
     return range(i0,i1);
   }
   
+  void clear() {
+    c[0] = '\0';
+    len = 1;
+  }
+
   static bool isWhite(char c) {
     char wh[] = " \n\t\v\b\r\f\a";
 
@@ -336,6 +341,7 @@ public:
 
 private:
   char* c;
+  // len is the length of the array including the null (string length + 1)
   int cap, len;
 
   void grow(int n) {

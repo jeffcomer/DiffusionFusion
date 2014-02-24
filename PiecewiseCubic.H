@@ -17,6 +17,11 @@ public:
     read(fileName, periodic0);
   }
 
+  PiecewiseCubic(bool periodic0, const String& fileSegment) {
+    v0 = NULL;
+    import(fileSegment,periodic0);
+  }
+
   PiecewiseCubic(const PiecewiseCubic& tab) {
     n = tab.n;
     dr = tab.dr;

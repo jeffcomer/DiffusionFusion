@@ -16,7 +16,12 @@
 #include "PiecewiseCubic.H"
 #include "PiecewiseBicubic.H"
 #include "FieldDesc.H"
+#include "HistoryReader.H"
 #include "TrajCostComputer.H"
+#include "Prior.H"
+#include "MetroMonteCarlo.H"
+
+// Various types of trajectory cost calculators, some experimental.
 #include "TrajComerPmf.H"
 #include "TrajComer2d.H"
 //#include "TrajComerPmfLinear.H"
@@ -36,16 +41,20 @@
 //#include "TrajCylinder.H"
 //#include "TrajCylinderAxial.H"
 //#include "TrajCylinderRadial.H"
-#include "Prior.H"
-#include "MetroMonteCarlo.H"
 
-class TrajFile {
+struct TrajFile {
 public:
   String fileName;
   int stride;
   int skip;
   int position;
   TrajFilter* filter;
+  String biasFile;
+  String biasCountFile;
+  int biasFullSamples;
+  int eventFirst;
+  int eventLast;
+  int serialLast;
 
   static const int posInit = 0;
   static const int posFinal = 1;
@@ -90,13 +99,17 @@ private:
   int trajVarNum;
   int* trajVarCol;
   String* trajVarName;
-  IndexList colList;
+  IndexList colList; // 0-based list of columns corresponding to trajectory vars
+  int dispFileMax; // Number of files to display in the log.
+
+  // Variables for forming blocks.
+  // This was done for some experimental TrajCostComputers that didn't work.
   int blockLen;
   int blockNum;
   int blockInd;
 
   // List of events.
-  int eventMax;
+  int eventMax; // capacity
   int eventNum;
   Event* event;
 
@@ -104,8 +117,13 @@ private:
   int fieldNum;
   Field** fieldList;
   FieldDesc* fieldDesc;
-  Field** saveList;
-
+  Field** saveList; // Saving the lowest cost field values.
+  // For bias history files.
+  HistoryReader** biasHistoryList;
+  int totalTrajFileNum;
+  int biasFieldNum;
+  const Piecewise1d** biasFieldList;
+  
   // Priors.
   int priorNum;
   Prior** priorList;
@@ -116,25 +134,26 @@ private:
   int mcCycles;
 
   // Dump control
-  static const int dumpTypeNum = 6;
+  static const int dumpTypeNum = 7;
   static const int dumpEvents = 0;
   static const int dumpFields = 1;
   static const int dumpDistro = 2;
   static const int dumpBest = 3;
   static const int dumpEventCost = 4;
   static const int dumpRefField = 5;
+  static const int dumpBias = 6;
   String dumpFile[dumpTypeNum];
 
   TrajCostComputer* trajCost;
 public:
-  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), blockNum(0), blockInd(0), eventMax(1), eventNum(0), event(NULL),  fieldNum(0), fieldList(NULL), priorNum(0), priorList(NULL), monte(NULL), mcCycles(0) {
+  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), dispFileMax(30), blockNum(0), blockInd(0), eventMax(1), eventNum(0), event(NULL),  fieldNum(0), fieldList(NULL), biasHistoryList(NULL), biasFieldNum(0), biasFieldList(NULL), priorNum(0), priorList(NULL), monte(NULL), mcCycles(0) {
     // Read the configuration file.
     cmdNum = countLines(cmdFile.cs(), IndexList(0));
     cmdList = new CommandLineReader*[cmdNum];
     for (int c = 0; c < cmdNum; c++) cmdList[c] = NULL;
     readCommands(cmdFile.cs(), cmdNum);
     printf("Read %d commands from `%s'.\n", cmdNum, cmdFile.cs());
-    
+
     printf("Organizing commands.\n");
     int trajCostNum = 0, mcNum = 0, trajNum = 0, outputNum = 0, dumpNum = 0;
     int cmdTrajCost = 0, cmdMc = 0, cmdTraj = 0;
@@ -182,6 +201,8 @@ public:
 	  dumpFile[dumpEventCost] = cmdList[c]->getParam(1);
 	} else if (par0 == "refField") {
 	  dumpFile[dumpRefField] = cmdList[c]->getParam(1);
+	} else if (par0 == "bias") {
+	  dumpFile[dumpBias] = cmdList[c]->getParam(1);
 	} else {
 	  fprintf(stderr, "ERROR DiffusionFusion: Unrecognized dump command `%s'.\n", par0.cs());
 	  exit(-1);
@@ -245,6 +266,8 @@ public:
     printEventStats();
     if (blockLen > 1) printBlockStats();
     if (dumpFile[dumpEvents].length() > 0) writeEvents(dumpFile[dumpEvents]);
+    // We assume that the relevant coordinate is 0.
+    if (dumpFile[dumpBias].length() > 0) writeBiases(dumpFile[dumpBias], 0);
  
     printf("\nPreparing fields.\n");
     fieldList = new Field*[fieldNum];
@@ -294,10 +317,11 @@ public:
     fprintf(stdout, "\t*Note: Organizing the data into contiguous blocks, as effected by -block, is useful for intergral methods.\n");
     fprintf(stdout, "\t*Note: An important restriction is that the coordinates must be given in the order of the axes of the fields.");
     fprintf(stdout, "\t e.g., the first -coor is assumed to the primary direction in all fields.\n");
-    fprintf(stdout, "\nload trajFile [-stride dataStride] [-skip eventSkip] [-minVar colName -minVal val] [-maxVar colName -maxVal val] [-scaleVar colName -scaleVal val] [-periodicVar col -periodicMin qMin -periodicMax qMax] [-pos init|mid|final]\n");
+    fprintf(stdout, "\nload trajFile [-stride dataStride] [-skip eventSkip] [-minVar colName -minVal val] [-maxVar colName -maxVal val] [-scaleVar colName -scaleVal val] [-periodicVar col -periodicMin qMin -periodicMax qMax] [-pos init|mid|final] [-bias biasHistoryFile] [-biasCount biasCountHistoryFile] [-biasFullSamples fullSamples]\n");
     //fprintf(stdout, "\t*Note: -minVal and -maxVal filters apply to the initial of position of an event\n");
     fprintf(stdout, "\t*Note: -stride changes the time between frames, while -skip\n\t\tthrows out events after the interval has been calculated.\n");
     fprintf(stdout, "\nloadMany trajFileFile [same options as load]\n");
+    fprintf(stdout, "\t*Note: Using -bias with loadMany probably doesn't make sense -- all files will use the same bias history. No warning will be issued.\n");
     fprintf(stdout, "\nloadEvent [-skip eventSkip] [-offset remainder] eventFile\n");
     fprintf(stdout, "\t*Note: Assumed to already be correctly filtered.\n");
     fprintf(stdout, "\nfield fieldName fieldType -step mcStep [-f initialFileName] [-periodic true|false] [-n numEntries] [-init initialValue] [-minVal val] [-maxVal val] [-var colName] [-err errorFile] [-outPmf force|prob] [-global true|false]\n");
@@ -332,6 +356,16 @@ public:
       delete[] fieldList;
       delete[] fieldDesc;
       delete[] saveList;
+    }
+
+    if (biasHistoryList != NULL) {
+      for (int i = 0; i < totalTrajFileNum; i++) if (biasHistoryList[i] != NULL) delete biasHistoryList[i];
+      delete[] biasHistoryList;
+    }
+
+    if (biasFieldList != NULL) {
+      for (int i = 0; i < biasFieldNum; i++) delete biasFieldList[i];
+      delete[] biasFieldList;
     }
 
     if (priorList != NULL) {
@@ -793,6 +827,84 @@ private:
     // Actually load the files, applying filters.
     loadAll(fileList, fileNum, eventFileList, eventFileSkip, eventFileOffset, eventFileNum);
 
+    // This code is to support bias history files.
+    // Load the bias history for each file if necessary.
+    // We do not yet support bias histories associated with event files.
+    int biasHistoryCount = 0;
+    totalTrajFileNum = fileNum;
+    for (int f = 0; f < fileNum; f++) if (fileList[f].biasFile.length()>1) biasHistoryCount++;
+    printf("%d trajectory files have an associated bias history.\n", biasHistoryCount);
+
+    if (biasHistoryCount > 1) {
+      printf("Reading bias history files:\n");
+      // While all files might not have a bias history, the array covers all,
+      // with nulls where necessary.
+      biasHistoryList = new HistoryReader*[fileNum];
+
+      biasFieldNum = 0;
+      for (int f = 0; f < fileNum; f++) {
+	if (fileList[f].biasFile.length() != 0) {
+	  // We have a bias file, load it.
+	  biasHistoryList[f] = new HistoryReader(fileList[f].biasFile.cs());
+	  // Load the count file if we set fullSamples.
+	  // We need to mimic how colvars handles fullSamples.
+	  if (fileList[f].biasFullSamples > 0) {
+	    if (fileList[f].biasCountFile.length() == 0) {
+	      fprintf(stderr, "ERROR: File %d specifies -biasFullSamples > 0 without specifying a count history file with -biasCount\n", f);
+	      exit(-1);
+	    }
+	    
+	    int changed = biasHistoryList[f]->enforceFullSamples(fileList[f].biasCountFile.cs(), fileList[f].biasFullSamples);
+	    if (f < dispFileMax) printf("Rescaled %d bias forces to imitate the colvars module with fullSamples=%d\n", changed,  fileList[f].biasFullSamples);
+	  }
+
+	  biasFieldNum += biasHistoryList[f]->length();
+
+	  if (f < dispFileMax)
+	    printf("History file %s associated with trajectory file %s has %d bias frames.\n", fileList[f].biasFile.cs(), fileList[f].fileName.cs(), biasHistoryList[f]->length());
+	} else biasHistoryList[f] = NULL;
+      }
+
+      // Now we must associate each event with a bias.
+      biasFieldList = new const Piecewise1d*[biasFieldNum];
+      int bfn = 0;
+      for (int f = 0; f < fileNum; f++) {
+	if (biasHistoryList[f] == NULL) continue;
+	// We assume that the history file and the trajectory file
+	// represent approximately the same interval.
+	int histFrameN = biasHistoryList[f]->length();
+	int eventN = fileList[f].eventLast - fileList[f].eventFirst + 1;
+	double histEventRatio = histFrameN/double(eventN);
+	printf("biasHistory: file %d historyFrames %d events %d histEventRatio %g\n", f, histFrameN, eventN, histEventRatio);
+
+	int lastFrame = -1;
+	for (int e = fileList[f].eventFirst; e <= fileList[f].eventLast; e++) {
+	  int eventDelta = e - fileList[f].eventFirst;
+	  int histFrame = (eventDelta*histFrameN)/eventN;
+
+	  if (histFrame != lastFrame) {
+	    // Add a new bias field if necessary.
+	    biasFieldList[bfn] = biasHistoryList[f]->getBiasFrame(histFrame);
+	    bfn++;
+	    lastFrame = histFrame;
+	  }
+
+	  // Link the event to the bias.
+	  event[e].bias = bfn;
+	}
+      }
+    }
+
+    // Block the data?
+    // This was done for some experimental TrajCostComputers that didn't work.
+     // Keep only complete blocks.
+    if (blockLen != 1) {
+      printf("There are %d events before blocking.\n", eventNum);
+      blockEvents();
+      printf("Kept %d complete event blocks of block length %d\n", blockNum, blockLen);
+      printf("There are %d events after blocking.\n", eventNum);
+    }
+
     for (int f = 0; f < fileNum; f++) delete fileList[f].filter;
     delete[] fileList;
     delete[] eventFileList;
@@ -837,6 +949,12 @@ private:
 	  fprintf(stderr, "ERROR load %s: -pos %s unrecognized.\n", fileName.cs(), val.cs());
 	  exit(-1);
 	}
+      } else if (opt == "bias") {
+	traj.biasFile = val;
+      } else if (opt == "biasCount") {
+	traj.biasCountFile = val;
+      } else if (opt == "biasFullSamples") {
+	traj.biasFullSamples = atoi(val.cs());
       } else if (opt == "scaleVar") {
 	if (o+1 >= cmd.getOptionNum() || cmd.getOption(o+1) != "scaleVal") {
 	  fprintf(stderr, "ERROR load %s: -scaleVar must be followed by -scaleVal\n", fileName.cs());
@@ -886,8 +1004,8 @@ private:
   // Initialize the event.
   // Load all files from the list of trajectory files using readTrajFile().
   // readTrajFile() also fills the event buffer and applies the filters.
-  void loadAll(const TrajFile* fileList, int fileNum, const String* eventFileList, const int* eventFileSkip, const int* eventFileOffset, int eventFileNum) {
-    const int dispFileMax = 30;
+  // filesList isn't const because we set eventFirst and eventLast.
+  void loadAll(TrajFile* fileList, int fileNum, const String* eventFileList, const int* eventFileSkip, const int* eventFileOffset, int eventFileNum) {
     // Count the number of possible events.
     blockInd = 0;
     eventMax = 1;
@@ -909,18 +1027,21 @@ private:
       if (f < dispFileMax) printf("file %s lines %d\n", eventFileList[f].cs(), n);
       else if (f==dispFileMax) printf("Reading %d more files...\n", eventFileNum-dispFileMax);
     }
-      //eventMax += countLines(eventFileList[f].cs(), eventColList)/eventFileSkip[f] + 1;
 
+    // Allocate the event buffer.
+    eventNum = 0;
+    event = new Event[eventMax];
     printf("Maximum number of events %d\n\n", eventMax);
 
     // Fill the event list.
     printf("\nReading trajectory files:\n");
-    eventNum = 0;
-    event = new Event[eventMax];
     for (int f = 0; f < fileNum; f++) {
       //if (f < dispFileMax) printf("Reading trajectory file `%s'\n", fileList[f].fileName.cs());
-      int n = readTrajFile(fileList[f], colList);
-      if (f < dispFileMax) printf("trajFile %s events %d\n", fileList[f].fileName.cs(), n);
+      // We keep a record of how each file was mapped into the event buffer (eventFirst, eventLast).
+      fileList[f].eventFirst = eventNum;
+      fileList[f].serialLast = readTrajFile(fileList[f], colList);
+      fileList[f].eventLast = eventNum-1;
+      if (f < dispFileMax) printf("trajFile %s events %d first %d last %d\n", fileList[f].fileName.cs(),  eventNum-fileList[f].eventFirst, fileList[f].eventFirst, fileList[f].eventLast);
       else if (f==dispFileMax) printf("Reading %d more files...\n", fileNum-dispFileMax);
     }
 
@@ -933,13 +1054,7 @@ private:
       else if (f==dispFileMax) printf("Reading %d more event files...\n", eventFileNum-dispFileMax);
     }
 
-    // Keep only complete blocks.
-    if (blockLen != 1) {
-      printf("There are %d events before blocking.\n", eventNum);
-      blockEvents();
-      printf("Kept %d complete event blocks of block length %d\n", blockNum, blockLen);
-      printf("There are %d events after blocking.\n", eventNum);
-    }
+   
   }
 
   void prepareField(const CommandLineReader& cmdLine, int fieldInd) {
@@ -1574,6 +1689,8 @@ private:
     return l;
   }
 
+  // A fast version of countLines with no checks.
+  // We are guaranteed to get a value greater than or equal to the number of lines.
   static int countLines(const char* fileName) {
     // Open the file for reading.
     FILE* inp = fopen(fileName,"r");
@@ -1675,8 +1792,9 @@ private:
     return l;
   }
 
+  // Read a trajectory file.
+  // Return the serial number of the last line read (that wasn't empty or a comment).
   int readTrajFile(const TrajFile& traj, const IndexList& colList) {
-    int eventNum0 = eventNum;
     // Open the file for reading.
     FILE* inp = fopen(traj.fileName,"r");
     if (inp == NULL) {
@@ -1702,6 +1820,7 @@ private:
     int ln = 0;
     int eventCounter = 0;
     int blockCounter = -1;
+    int serial = 0;
 
     /////
     // Read all the entries.
@@ -1728,14 +1847,20 @@ private:
 	blockCounter = 0;
       }
 
+      // Set some organizational parameters for the event.
+      event[eventNum].block = blockInd;
+      // Serial tells you how far through the file we are--which
+      // can be used to determine the closest bias field in the history file.
+      event[eventNum].serial = serial;
+      serial++;
+
       // Get the event data.
       String* tokList = new String[tokN];
       s.tokenize(tokList);
-
+      
       // Read the current variable values and set varLast.
       for (int c = 0; c < columns; c++) {
 	int col = colList.get(c);
-	event[eventNum].block = blockInd;
 	// Negative columns are set to zero.
 	if (col < 0) {
 	  event[eventNum].var[c] = 0.0;
@@ -1807,19 +1932,22 @@ private:
       }
 
       // Store this event.
-      if (valid) eventNum++;
+      if (valid) {
+	eventNum++;
+
+	// Sanity check.
+	if (eventNum > eventMax) {
+	  fprintf(stderr, "ERROR Overfilled event buffer reading `%s'\n", traj.fileName.cs());
+	  fprintf(stderr, "eventNum %d eventMax %d\n", eventNum, eventMax);
+	  exit(-1);
+	}
+      }
     }
     fclose(inp);
-
-    // Sanity check.
-    if (eventNum > eventMax) {
-      fprintf(stderr, "ERROR Overfilled event buffer reading `%s'\n", traj.fileName.cs());
-      fprintf(stderr, "eventNum %d eventMax %d\n", eventNum, eventMax);
-      exit(-1);
-    }
+    // Break the block between files.
     blockInd++;
 
-    return eventNum - eventNum0;
+    return serial;
   }
 
   // Remove series of events that do not conform to the block structure.
@@ -1829,8 +1957,9 @@ private:
     int en = 0;
     int newBlockNum = 0;
     for (int e = 0; e < eventNum; e++) {
-      if (event[e].block != currBlock) {
+      if (event[e].block != currBlock || currBlock == -1) {
 	// New block.
+	// When block numbers are unset (-1), blocks of size 1 are formed.
 	// Was the last block a complete?
 	// Try to get the largest number of complete blocks,
 	// allowing the block number to be greater than blockLen
@@ -1927,7 +2056,7 @@ private:
       }
  
       int numTokens = s.tokenCount();
-      // +1 is for the block number
+      // +1 is for the serial number
       if (numTokens != trajVarNumThree && numTokens != trajVarNumThree+1) {
 	fprintf(stderr,"ERROR Line of eventFile `%s' doesn't have %d entries:\n%s\n", eventFile, trajVarNumThree, line);
 	exit(-1);
@@ -1945,7 +2074,7 @@ private:
 	}
 	if (numTokens == trajVarNumThree+1) event[eventNum].block = atoi(tokenList[trajVarNumThree].cs());
 	else event[eventNum].block = eventNum;
-	//event[eventNum].block = eventNum/blockLen;
+	event[eventNum].block = eventNum/blockLen;
 	eventNum++;
       }
       e++;
@@ -1976,8 +2105,28 @@ public:
       for (int v = 0; v < trajVarNum; v++) {
 	fprintf(out, "%.14g %.14g %.14g ", event[e].var[v], event[e].del[v], event[e].del0[v]);
       }
-      fprintf(out, "%d\n", event[e].block);
+      //fprintf(out, "%d\n", event[e].block);
+      fprintf(out, "%d\n", event[e].bias);
     }
+
+    fclose(out);
+    return true;
+  }
+
+  bool writeBiases(String fileName, int var) {
+    // Open the file for writing.
+    FILE* out = fopen(fileName.cs(),"w");
+    if (out == NULL) {
+      fprintf(stderr,"Warning: Couldn't open file `%s' for writing.\n", fileName.cs());
+      return false;
+    }
+    
+    fprintf(out, "# BIAS(X)\n");
+    for (int e = 0; e < eventNum; e++)
+      if (event[e].bias >= 0) {
+	double bias = biasFieldList[event[e].bias]->computeZeroOrder(event[e].var[var]);
+	fprintf(out, "%.14g %.14g\n", event[e].var[var], bias);
+      }
 
     fclose(out);
     return true;

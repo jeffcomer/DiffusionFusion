@@ -67,6 +67,55 @@ public:
     delete[] e;
   }
 
+
+  void import(const String& fileSegment, bool periodic0) {
+    // Get the data from a string buffer instead of a file.
+    int numLines = fileSegment.tokenCount('\n');
+    String* lineList = new String[numLines];
+    fileSegment.tokenize(lineList, '\n');
+    
+    double* r = new double[numLines];
+    double* v = new double[numLines];
+    double* e = new double[numLines];
+
+    int count = 0;
+    for (int l = 0; l < numLines; l++) {
+      String line = lineList[l].trim();
+      int len = lineList[l].length();
+      // Ignore comments.
+      if (line[0] == '#') continue;
+      if (len < 2) continue;
+      
+      int numTokens = line.tokenCount();
+      if (numTokens != 2 && numTokens != 3) {
+	fprintf(stderr,"ERROR Piecewise1d::import Invalid import string line: %s\n", line.cs());
+	exit(-1);
+      }
+
+      String* tokenList = new String[numTokens];
+      line.tokenize(tokenList);
+      r[count] = strtod(tokenList[0], NULL);
+      v[count] = strtod(tokenList[1], NULL);
+      if (numTokens == 3) e[count] = strtod(tokenList[2], NULL);
+      else e[count] = 0.0;
+      count++;
+
+      delete[] tokenList;
+    }
+
+    periodic = periodic0;
+    init(r, v, count);
+    interpolation();
+
+    // Set the error.
+    for (int i = 0; i < count; i++) err[i] = e[i];
+
+    delete[] r;
+    delete[] v;
+    delete[] e;
+  }
+
+
   //virtual Piecewise1d& operator=(const Piecewise1d& tab) = 0;
 
   static int countValueLines(const char* fileName) {
