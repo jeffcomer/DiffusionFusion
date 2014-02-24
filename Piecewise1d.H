@@ -298,6 +298,7 @@ public:
 
   // Get and set properties.
   double getDr() const { return dr; }
+  double getDl() const { return dl; }
   double getR0() const { return r0; }
   double getR1() const { return r1; }
 
@@ -322,17 +323,11 @@ public:
     return r<0 ? r+n : r;
   }
 
-  // Wrap a position.
   double wrap(double x) const {
-    int image = int(floor( (x-r0)/dl ));
-    return x - image*dl;
+    return wrapReal(x-r0, dl);
   }
-
-  // Wrap a position.
   double wrapDiff(double x) const {
-    int image = int(floor( (x-r0)/dl ));
-    x = x - image*dl;
-
+    return wrapRealDiff(x-r0, dl);
   }
 
   inline int nearestNode(const double* pos) const {

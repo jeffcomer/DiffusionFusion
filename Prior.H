@@ -5,6 +5,7 @@
 #define PRIOR_H
 
 #include <cstdio>
+#include "TrialMove.H"
 
 class Prior {
   const Field* field; // pointer to field master fieldList

@@ -46,12 +46,12 @@ public:
   }
   
   PiecewiseCubic(const Piecewise1d& tab) {
-    n = tab.n;
-    dr = tab.dr;
-    dl = tab.dl;
-    r0 = tab.r0;
-    r1 = tab.r1;
-    periodic = tab.periodic;
+    n = tab.length();
+    dr = tab.getDr();
+    dl = tab.getDl();
+    r0 = tab.getR0();
+    r1 = tab.getR1();
+    periodic = tab.getPeriodic();
     
     v0 = new double[n];
     v1 = new double[n];
@@ -59,8 +59,8 @@ public:
     v3 = new double[n];
     err = new double[n];
     for (int i = 0; i < n; i++) {
-      v0[i] = tab.v0[i];
-      err[i] = tab.err[i];
+      v0[i] = tab.get(i);
+      err[i] = tab.getErr(i);
     }
     interpolation();
   }

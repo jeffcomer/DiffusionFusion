@@ -8,20 +8,23 @@
 #include "PiecewiseCubic.H"
 #include "Event.H"
 #include "TrajCostComputer.H"
-#include "BrownDynDiffusionSolver.H"
+#include "SmoluchowskiSolver.H"
 
 class TrajBrownDyn : public TrajCostComputer {
 private:
   const Piecewise1d* diffuse;
   const Piecewise1d* force;
-  int T, X, D, FB;
+  const Piecewise1d** biasFieldList;
+  int T, X;;
   // Maximum node hop made by events in each node.
+  const Piecewise1d* leastLocalP1d;
   int* nodeHopMax;
-  DiffusionSolver* solver;
+  SmoluchowskiSolver* solver;
+  double deltaX;
 
 public:
-  TrajBrownDyn(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, const Piecewise1d* biasFieldList, DiffusionSolver* solver0, int subintervalSteps) :
-    TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 2), nodeHopMax(NULL), solver(solver0) {
+  TrajBrownDyn(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, const Piecewise1d** biasFieldList0, SmoluchowskiSolver* solver0, int subintervalSteps) :
+    TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 2), biasFieldList(biasFieldList0), nodeHopMax(NULL), solver(solver0) {
 
     if (tcFieldNum != 2) {
       fprintf(stderr, "ERROR trajCost BrownDyn takes two fields: (0) diffusivity (1) force\n");
@@ -43,20 +46,24 @@ public:
 
     T = 1;
     X = 0;
-    
-    nodeHopMax = new int[leastLocalField->length()];
-    solver.setParameters(beta,subintervalSteps);
+
+    const Piecewise1d* leastLocalP1d = dynamic_cast<const Piecewise1d*>(leastLocalField);
+    if (leastLocalP1d == NULL) {
+      fprintf(stderr,"ERROR trajCost BrownDyn requires leastLocalField type linear or cubic.\n");
+      exit(-1);
+    }
+    deltaX = leastLocalP1d->getDr();
+
+    nodeHopMax = new int[leastLocalNodes];
+    solver->setParameters(beta,subintervalSteps);
 
     updateLocal();
     cloneLast();
+    initMaxHop();
   }
 
   ~TrajBrownDyn() {
-    if (blockNodeList != NULL) {
-      delete[] blockNodeList;
-      delete[] blockLastCost;
-      delete[] blockCurrCost;
-    }
+    delete[] nodeHopMax;
   }
 
   // Event variables.
@@ -89,94 +96,73 @@ public:
   }
 
   void initMaxHop() {
-    PiecewiseCubic zero(*leastLocalField);
+    PiecewiseCubic zero(*leastLocalP1d);
     zero.zero();
-    
-    for (int e = 0; e < eventNum; e++) {
-      hopMax = 0.0;
-      solveProb(event[e].var[X], event[e].var[X]+event[e].del[X], event[e].del[T], diffuse, force, biasFieldList[event[e].bias], hopMax);
+
+    for (int n = 0; n < leastLocalNodes; n++) {
+      int ne = local[n].events.length();
+
+      // Find the biggest hop from each node.
+      double hopMax = 0.0;
+      for (int le = 0; le < ne; le++) {
+	int e = local[n].events.get(le);
+	double x0 = event[e].var[X];
+	double x1 = x0 + event[e].del[X];
+	double tau = event[e].del[T];
+	solver->solveProb(x0, x1, tau, diffuse, force, biasFieldList[event[e].bias], hopMax);
+	solver->solveProb(x0, x1, tau, diffuse, &zero, biasFieldList[event[e].bias], hopMax);
+      }
+
+      nodeHopMax[n] = int(hopMax/deltaX)+1;
+      printf("maxHop %d %g %d\n", n, hopMax, nodeHopMax[n]);
+    }
+  }
+
+  void updateMaxHop() {
+    for (int n = 0; n < leastLocalNodes; n++) {
+      int ne = local[n].events.length();
+
+      // Find the biggest hop from each node.
+      double hopMax = 0.0;
+      for (int le = 0; le < ne; le++) {
+	int e = local[n].events.get(le);
+	double x0 = event[e].var[X];
+	double x1 = x0 + event[e].del[X];
+	double tau = event[e].del[T];
+	solver->solveProb(x0, x1, tau, diffuse, force, biasFieldList[event[e].bias], hopMax);
+      }
+
+      nodeHopMax[n] = int(hopMax/leastLocalP1d->getDr())+1;
     }
   }
   
   double eventCost(int e) {
-    
+    double hopMax = 0.0;
+    return solver->solveProb(event[e].var[X], event[e].var[X]+event[e].del[X], event[e].del[T], diffuse, force, biasFieldList[event[e].bias], hopMax);
   }
 
-  double eventCost(int e) {
-    // Sum of forceBias and forceSys.
-    double frc = event[e].var[FB] + force->computeVal(event[e].var[X]);
-    // The diffusivity and its gradient.
-    double dif, gradDif;
-    diffuse->computeValGrad(event[e].var[X], dif, gradDif);
-
-    // Add the cost of this event.
-    double cost = ccgCost(event[e].del[T], event[e].del[D], frc, dif, gradDif);
-
-    // Check for NaN.
-#ifdef FUSION_DEBUG
-    nanCheck(cost,'e',event[e].del[D],frc,gradDif,dif);
-#endif
-    return cost;
-  }
 
   ////////////////////////////////////////////////////////////////////
-  // We overload updateLocal, deltaCost, revert because we can no longer rely on just nearby neighbors.
+  // We overload deltaCost, revert because we can no longer rely on just nearby neighbors.
   virtual double deltaCost(const TrialMove& trialMove) {
-    
-    
+    IndexList region;
+    int n0 = trialMove.node - nodeHopMax[trialMove.node];
+    int n1 = trialMove.node + nodeHopMax[trialMove.node];
+    for (int n = n0; n <= n1; n++) region.add(n);
+    deltaCost(trialMove, region);
   }
 
-
-  virtual double deltaCost(const TrialMove& trialMove) {
-    IndexList neigh = leastLocalField->neighbors(trialMove.node);
-
-    // Find the events that are affected by a change in node.
-    double dc = 0.0;
-#pragma omp parallel for reduction(+:dc)
-    for (int b = 0; b < eventNum; b++) {
-      if ( eventNodeList[b].find(trialMove.node) >= 0) {
-	// Event b is affected.
-	// Save the last cost.
-	eventLastCost[b] = eventCurrCost[b];
-	// Calculate the new cost.
-	double currCost = eventCost(b);
-	// Set the current value.
-	eventCurrCost[b] = currCost;
-	// Add the difference.
-	dc += currCost - eventLastCost[b]; 
-      }
-    }
-    return dc;
+virtual void revert(const TrialMove& trialMove) {
+    IndexList region;
+    int n0 = trialMove.node - nodeHopMax[trialMove.node];
+    int n1 = trialMove.node + nodeHopMax[trialMove.node];
+    for (int n = n0; n <= n1; n++) region.add(n);
+    revert(trialMove, region);
   }
 
-  virtual void revert(const TrialMove& trialMove) {
-    // Find the events that are affected by a change in node.
-#pragma omp parallel for
-    for (int b = 0; b < eventNum; b++)
-      if ( eventNodeList[b].find(trialMove.node) >= 0) {
-	// Revert to the lastCost.
-	eventCurrCost[b] = eventLastCost[b];
-      }
-  }
-
-  virtual void cloneLast() {
-#pragma omp parallel for
-    for (int b = 0; b < eventNum; b++)
-	eventLastCost[b] = eventCurrCost[b];
-  }
-
-  // Instead of local costs, we have event costs.
-  virtual double updateLocal() {
-    long double cost = 0.0;
-#pragma omp parallel for reduction(+:cost)
-    for (int b = 0; b < eventNum; b++) {
-      double bc = eventCost(b);
-      eventCurrCost[b] = bc;
-      cost += bc;
-    }
-    return cost;
-  }
+  // We overload updateLocal() just so that we can update the maxHops.
   
+
 };
 
 #endif
