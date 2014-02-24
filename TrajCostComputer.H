@@ -43,8 +43,7 @@ public:
       fprintf(stderr, "ERROR TrajCostComputer must act on at least one field.\n");
       exit(-1);
     }
-    
-    
+        
     initLocal();
     eventIndList = new int[trajVarMin];
     for (int i = 0; i < trajVarMin; i++) eventIndList[i] = 0;
@@ -61,7 +60,6 @@ public:
       fprintf(stderr, "ERROR TrajCostComputer::blockLen must be at least 1.\n");
       exit(-1);
     }
-    
     
     initLocal();
     eventIndList = new int[trajVarMin];

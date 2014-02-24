@@ -28,7 +28,7 @@ private:
   int stepsPerCycle;
 
 public:
-  MetroMonteCarlo(Field** ppf, const FieldDesc* pfd, const IndexList& selection) {
+  MetroMonteCarlo(Field** ppf, const FieldDesc* pfd, const IndexList& selection, Random* rando0) {
     fieldNum = selection.length();
     if (fieldNum == 0) {
       fprintf(stderr, "ERROR MetroMonteCarlo must act on at least one field.\n");
@@ -48,7 +48,7 @@ public:
     stepsPerCycle = 0;
     for (int f = 0; f < fieldNum; f++) stepsPerCycle += mcField[f]->length();
 
-    rando = new Random();
+    rando = rando0;
   }
 
   ~MetroMonteCarlo() {
@@ -56,11 +56,7 @@ public:
     // We just deallocate our arrays of pointers to them.
     delete[] mcField;
     delete[] mcFieldDesc;
-    delete rando;
-  }
-
-  void randomSeed(long int seed) {
-    rando->init(seed);
+    // rando is owned by the caller.
   }
 
   int getLocalFieldNum() const { return mcLocalFields.length(); }

@@ -8,32 +8,23 @@
 #include "PiecewiseCubic.H"
 #include "Event.H"
 #include "TrajCostComputer.H"
-
-struct BdParams {
-  BdDescriptor(int stepsMin0, int stepsMax0, int hitsMin0) : stepsMin(stepsMin0), stepsMax(stepsMax0), hitsMin(hitsMin0) {
-  }
-public:
-  int stepsMin;
-  int stepsMax;
-  int hitsMin;
-};
+#include "BrownDynDiffusionSolver.H"
 
 class TrajBrownDyn : public TrajCostComputer {
 private:
   const Piecewise1d* diffuse;
   const Piecewise1d* force;
   int T, X, D, FB;
-  // Maximum node hop made by events in this node.
-  int nodeHopMax*;
-  Piecewise1d* bdBins;
-  int bdStepsMin, bdStepsMax, bdHitsMin;
+  // Maximum node hop made by events in each node.
+  int* nodeHopMax;
+  DiffusionSolver* solver;
 
 public:
-  TrajBrownDyn(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, BdParams bdDesc0) :
-    TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 4, blockLen), nodeHopMax(NULL), bdDesc(bdDesc0) {
+  TrajBrownDyn(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, const Piecewise1d* biasFieldList, DiffusionSolver* solver0, int subintervalSteps) :
+    TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 2), nodeHopMax(NULL), solver(solver0) {
 
-    if (tcFieldNum != 3) {
-      fprintf(stderr, "ERROR trajCost BrownDyn takes two fields: (0) diffusivity (1) force (2) brownianBins\n");
+    if (tcFieldNum != 2) {
+      fprintf(stderr, "ERROR trajCost BrownDyn takes two fields: (0) diffusivity (1) force\n");
       exit(-1);
     }
 
@@ -47,21 +38,14 @@ public:
       fprintf(stderr,"ERROR trajCost BrownDyn requires field type linear or cubic.\n");
       exit(-1);
     }
-    Piecewise1d* bdBins0 = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(2)]);
-    if (force == NULL) {
-      fprintf(stderr,"ERROR trajCost BrownDyn requires field type linear or cubic.\n");
-      exit(-1);
-    }
-    // The Brownian dynamics bins are a separate object with the same dimensions as the given field.
-    bdBins = new Piecewise1d(*bdBins0);
-    bdBins.zero();
 
     //std::numeric_limits<double>::infinity();
 
     T = 1;
     X = 0;
-    D = 0;
-    FB = 2;
+    
+    nodeHopMax = new int[leastLocalField->length()];
+    solver.setParameters(beta,subintervalSteps);
 
     updateLocal();
     cloneLast();
@@ -79,9 +63,7 @@ public:
   void eventVarShortcuts() {
     T = eventIndList[0];
     X = eventIndList[1];
-    D = eventIndList[2];
-    FB = eventIndList[3];
-    for (int i = 0; i < 4; i++) printf("eventIndList[%d] = %d\n", i, eventIndList[i]);
+    for (int i = 0; i < 2; i++) printf("eventIndList[%d] = %d\n", i, eventIndList[i]);
   }
   // Event variables.
   String eventVarName(int ind) const {
@@ -90,10 +72,6 @@ public:
       return String("time");
     case 1:
       return String("pos");
-    case 2:
-      return String("displacement");
-    case 3:
-      return String("forceBias");
     default:
       return String("UNKNOWN");
     }
@@ -105,26 +83,23 @@ public:
       return String("diffusivity");
     case 1:
       return String("force");
-    case 2:
-      return String("brownianBins");
     default:
       return String("UNKNOWN");
     }
   }
 
-
-  void brownianDynamics() {
+  void initMaxHop() {
+    PiecewiseCubic zero(*leastLocalField);
+    zero.zero();
     
-  }
-
-
-  double eventCost(int e) {
-    // We run Brownian dynamics on the current force and diffusivity fields
-    // until our desired bin gets filled.
-    for (int s = 0; s < bdStepsMax; s++) {
-      
+    for (int e = 0; e < eventNum; e++) {
+      hopMax = 0.0;
+      solveProb(event[e].var[X], event[e].var[X]+event[e].del[X], event[e].del[T], diffuse, force, biasFieldList[event[e].bias], hopMax);
     }
-
+  }
+  
+  double eventCost(int e) {
+    
   }
 
   double eventCost(int e) {

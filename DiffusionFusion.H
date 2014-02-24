@@ -17,9 +17,11 @@
 #include "PiecewiseBicubic.H"
 #include "FieldDesc.H"
 #include "HistoryReader.H"
-#include "TrajCostComputer.H"
 #include "Prior.H"
+#include "RandomGsl.H"
+#include "BrownDynDiffusionSolver.H"
 #include "MetroMonteCarlo.H"
+#include "TrajCostComputer.H"
 
 // Various types of trajectory cost calculators, some experimental.
 #include "TrajComerPmf.H"
@@ -102,6 +104,12 @@ private:
   IndexList colList; // 0-based list of columns corresponding to trajectory vars
   int dispFileMax; // Number of files to display in the log.
 
+  // For bias history files.
+  HistoryReader** biasHistoryList;
+  int totalTrajFileNum;
+  int biasFieldNum;
+  const Piecewise1d** biasFieldList;
+
   // Variables for forming blocks.
   // This was done for some experimental TrajCostComputers that didn't work.
   int blockLen;
@@ -118,20 +126,24 @@ private:
   Field** fieldList;
   FieldDesc* fieldDesc;
   Field** saveList; // Saving the lowest cost field values.
-  // For bias history files.
-  HistoryReader** biasHistoryList;
-  int totalTrajFileNum;
-  int biasFieldNum;
-  const Piecewise1d** biasFieldList;
   
   // Priors.
   int priorNum;
   Prior** priorList;
 
+  // The pseudorandom number generator
+  Random* rando;
+
+  // Diffusion equation solver object
+  DiffusionSolver* solver;
+
   // Monte Carlo object
   MetroMonteCarlo* monte;
   IndexList mcFieldSel;
   int mcCycles;
+
+  // The object where the magic happens.
+  TrajCostComputer* trajCost;
 
   // Dump control
   static const int dumpTypeNum = 7;
@@ -144,9 +156,8 @@ private:
   static const int dumpBias = 6;
   String dumpFile[dumpTypeNum];
 
-  TrajCostComputer* trajCost;
 public:
-  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), dispFileMax(30), blockNum(0), blockInd(0), eventMax(1), eventNum(0), event(NULL),  fieldNum(0), fieldList(NULL), biasHistoryList(NULL), totalTrajFileNum(0), biasFieldNum(0), biasFieldList(NULL), priorNum(0), priorList(NULL), monte(NULL), mcCycles(0) {
+  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), dispFileMax(30), biasHistoryList(NULL), totalTrajFileNum(0), biasFieldNum(0), biasFieldList(NULL), blockNum(0), blockInd(0), eventMax(1), eventNum(0), event(NULL), fieldNum(0), fieldList(NULL), priorNum(0), priorList(NULL), rando(NULL), solver(NULL), monte(NULL), mcCycles(0), trajCost(NULL) {
     // Read the configuration file.
     cmdNum = countLines(cmdFile.cs(), IndexList(0));
     cmdList = new CommandLineReader*[cmdNum];
@@ -155,8 +166,8 @@ public:
     printf("Read %d commands from `%s'.\n", cmdNum, cmdFile.cs());
 
     printf("Organizing commands.\n");
-    int trajCostNum = 0, mcNum = 0, trajNum = 0, outputNum = 0, dumpNum = 0;
-    int cmdTrajCost = 0, cmdMc = 0, cmdTraj = 0;
+    int trajCostNum = 0, solverNum = 0, mcNum = 0, trajNum = 0, outputNum = 0, dumpNum = 0;
+    int cmdTrajCost = 0, cmdSolver = 0, cmdMc = 0, cmdTraj = 0;
     IndexList cmdField, cmdPrior, cmdLoad, cmdLoadMany, cmdLoadEvents;
     for (int c = 0; c < cmdNum; c++) {
       String cmd(cmdList[c]->getCommand());
@@ -208,6 +219,9 @@ public:
 	  exit(-1);
 	}
 	dumpNum++;
+      } else if (cmd == "solver") {
+	solverNum++;
+	cmdSolver = c;
       } else if (cmd == "trajCost") {
 	trajCostNum++;
 	cmdTrajCost = c;
@@ -236,6 +250,10 @@ public:
       fprintf(stderr, "ERROR DiffusionFusion: `%s' does not have exactly one `mc' command.\n", cmdFile.cs());
       exit(-1);
     }
+    if (solverNum > 1) {
+      fprintf(stderr, "ERROR DiffusionFusion: `%s' may have no more than one `solver' command.\n", cmdFile.cs());
+      exit(-1);
+    }
 
     // Command line 'outputPrefix'
     if ( outPreCmdLine.length() > 0 ) {
@@ -256,6 +274,9 @@ public:
     printf("  loadEvents %d\n", cmdLoadEvents.length());
     printf("  field %d\n", fieldNum);
     printf("  prior %d\n", priorNum);
+    printf("  solver %d\n", solverNum);
+    printf("  mc %d\n", mcNum);
+    printf("  trajCost %d\n", trajCostNum);
     printf("  dump %d\n", dumpNum);
     
     printf("\nLoading the trajectory files.\n");
@@ -302,7 +323,11 @@ public:
     printf("\n");
     delete[] pc;
 
+    // Initialize the random number generator.
+    rando = new Random();
+
     // Prepare what's left.
+    prepareSolver(*cmdList[cmdSolver]);
     prepareTrajCost(*cmdList[cmdTrajCost]);
     prepareMonteCarlo(*cmdList[cmdMc]);
 
@@ -327,9 +352,10 @@ public:
     fprintf(stdout, "\nfield fieldName fieldType -step mcStep [-f initialFileName] [-periodic true|false] [-n numEntries] [-init initialValue] [-minVal val] [-maxVal val] [-var colName] [-err errorFile] [-outPmf force|prob] [-global true|false]\n");
     fprintf(stdout, "\t*Note: -outPmf force|prob allows you to write the negative integral\n\t\tor -kT log(prob), respectively, in addition writing the\n\t\tfield in the normal way.\n");
     fprintf(stdout, "\t*Note: -global permits parameters that affect all nodes.\n");
-    fprintf(stdout, "\ntrajCost ccg|ccgPmf|ccgLog|integral|integralForce|IntegralLog|langevinExp field0 field1... -kt k_BT -`varName' costVarName -leastLocal leastLocalField\n");
-    fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
     fprintf(stdout, "\nprior scale|known|smooth field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension] [-start startingFieldIndex] [-end endingFieldIndex]\n");
+    fprintf(stdout, "\nsolver type=bd [-bin binSize] [-min walksMin] [-max walksMax] [-hits hitsMin]\n");
+    fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
+    fprintf(stdout, "\ntrajCost ccg|ccgPmf|ccgLog|integral|integralForce|IntegralLog|langevinExp field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-steps subintervalSteps]\n");
     fprintf(stdout, "\ndump events|fields|distro|best|eventCost dumpFile\n");
     fprintf(stdout, "\t*Note: A '%%' in dumpFile is substituted with 'output'.\n");
   }
@@ -345,19 +371,6 @@ public:
       delete[] trajVarName;
     }
 
-    if (event != NULL) delete event;
-
-    if (fieldList != NULL) {
-      for (int i = 0; i < fieldNum; i++)
-	if (fieldList[i] != NULL) {
-	  delete fieldList[i];
-	  delete saveList[i];
-	}
-      delete[] fieldList;
-      delete[] fieldDesc;
-      delete[] saveList;
-    }
-
     if (biasHistoryList != NULL) {
       for (int i = 0; i < totalTrajFileNum; i++) if (biasHistoryList[i] != NULL) delete biasHistoryList[i];
       delete[] biasHistoryList;
@@ -370,11 +383,28 @@ public:
       delete[] biasFieldList;
     }
 
+    if (event != NULL) delete event;
+
+    if (fieldList != NULL) {
+      for (int i = 0; i < fieldNum; i++)
+	if (fieldList[i] != NULL) {
+	  delete fieldList[i];
+	  delete saveList[i];
+	}
+      delete[] fieldList;
+      delete[] fieldDesc;
+      delete[] saveList;
+    }
+   
     if (priorList != NULL) {
       for (int p = 0; p < priorNum; p++) delete priorList[p];
       delete[] priorList;
     }
+
+    if (rando != NULL) delete rando;
+    if (solver != NULL) delete solver;
     if (monte != NULL) delete monte;
+    if (trajCost != NULL) delete trajCost;
   }
 
   ///////////////////////////////////////////////////////////////////////
@@ -686,7 +716,7 @@ private:
 	o++; // We already did the next option.
       } else if (opt == "block") {
 	// Set the cycle length.
-	blockLen = atoi(val.cs());
+	blockLen = atoi(val);
       } else {
 	fprintf(stderr, "ERROR trajectory: Unrecognized option `%s'\n", opt.cs());
 	exit(-1);
@@ -808,13 +838,13 @@ private:
 	String val(pCmd->getOptionValue(o));
 
 	if (opt == "skip") {
-	  eventFileSkip[f] = atoi(val.cs());
+	  eventFileSkip[f] = atoi(val);
 	  if (eventFileSkip[f] < 1) {
 	    fprintf(stderr, "ERROR loadEvents %s: -skip must be greater than or equal to 1\n", eventFileList[f].cs());
 	    exit(-1);
 	  }
 	} else if (opt == "offset") {
-	  eventFileOffset[f] = atoi(val.cs());
+	  eventFileOffset[f] = atoi(val);
 	  if (eventFileOffset[f] < 0 || eventFileOffset[f] >= eventFileSkip[f] ) {
 	    fprintf(stderr, "ERROR loadEvents %s: -offset %d must be 0 <= offset < skip=%d. A -skip command should precede -offset.\n", eventFileList[f].cs(), eventFileOffset[f], eventFileSkip[f]);
 	    exit(-1);
@@ -937,13 +967,13 @@ private:
       String val(cmd.getOptionValue(o));
 
       if (opt == "stride") {
-	traj.stride = atoi(val.cs());
+	traj.stride = atoi(val);
 	if (traj.stride < 1) {
 	  fprintf(stderr, "ERROR load %s: -stride must be greater than or equal to 1\n", fileName.cs());
 	  exit(-1);
 	}
       } else if (opt == "skip") {
-	traj.skip = atoi(val.cs());
+	traj.skip = atoi(val);
 	if (traj.skip < 1) {
 	  fprintf(stderr, "ERROR load %s: -skip must be greater than or equal to 1\n", fileName.cs());
 	  exit(-1);
@@ -959,7 +989,7 @@ private:
       } else if (opt == "biasCount") {
 	traj.biasCountFile = val;
       } else if (opt == "biasFullSamples") {
-	traj.biasFullSamples = atoi(val.cs());
+	traj.biasFullSamples = atoi(val);
       } else if (opt == "scaleVar") {
 	if (o+1 >= cmd.getOptionNum() || cmd.getOption(o+1) != "scaleVal") {
 	  fprintf(stderr, "ERROR load %s: -scaleVar must be followed by -scaleVal\n", fileName.cs());
@@ -1097,20 +1127,20 @@ private:
       } else if (opt=="f") {
 	fieldDesc[f].file = val.cs();
       } else if (opt=="n") {
-	fieldDesc[f].n = atoi(val.cs());
+	fieldDesc[f].n = atoi(val);
       } else if (opt=="init") {
-	fieldDesc[f].initVal = strtod(val.cs(), NULL);
+	fieldDesc[f].initVal = strtod(val, NULL);
       } else if (opt=="periodic") {
 	fieldDesc[f].periodic = readBoolean(val);
       } else if (opt=="minVal") {
 	fieldDesc[f].hasMin = true;
-	fieldDesc[f].minVal = strtod(val.cs(), NULL);
+	fieldDesc[f].minVal = strtod(val, NULL);
       } else if (opt=="maxVal") {
 	fieldDesc[f].hasMax = true;
-	fieldDesc[f].maxVal = strtod(val.cs(), NULL);
+	fieldDesc[f].maxVal = strtod(val, NULL);
       } else if (opt=="fixed") {
 	fieldDesc[f].hasFixed = true;
-	fieldDesc[f].fixedNode = atoi(val.cs());
+	fieldDesc[f].fixedNode = atoi(val);
       } else if (opt=="err") {
 	fieldDesc[f].errFile = val;
       } else if (opt=="var") {
@@ -1243,6 +1273,7 @@ private:
     // Set some defaults.
     double kbt = 1.0;
     int leastLocal = -1;
+    int subintervalSteps = 1;
     String* optCostVar = new String[cmdLine.getOptionNum()];
     IndexList optTrajVar;
 
@@ -1251,7 +1282,8 @@ private:
       String opt(cmdLine.getOption(o));
       String val(cmdLine.getOptionValue(o));
 
-      if (opt == "kt") kbt = strtod(val.cs(), NULL);
+      if (opt == "kt") kbt = strtod(val, NULL);
+      else if (opt == "steps") subintervalSteps = itoa(val);
       else if (opt == "leastLocal") {
 	// Find the field that correpsponds to the given name.
 	int f;
@@ -1303,6 +1335,9 @@ private:
        trajCost = new TrajComer2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg2d2d") {
        trajCost = new TrajComer2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+    } else if (type == "longBd") {
+      trajCost = new TrajBrownDyn((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, solver, subintervalSteps);
+      if (subintervalSteps < 2) fprintf(stderr,"Warning: TrajBrownDyn is meant to be used with subintervalSteps > 1. Unless you are doing testing, add '-steps' to the trajectory command.\n");
     } else if (type == "integral") {
       trajCost = new TrajIntegral((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
       if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegral is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
@@ -1352,6 +1387,60 @@ private:
     delete[] optCostVar;
   }
 
+  void prepareSolver(const CommandLineReader& cmdLine) {
+    // Initialize objects that solve the diffusion equation.
+    if (cmdLine.getParamNum() != 1) {
+      fprintf(stderr, "ERROR solver: You must specify one type (bd) for the diffusion equation solver\n");
+      printUsage();
+      exit(-1);
+    }
+    
+    printf("\nDIFFUSION EQUATION SOLVER\n");    
+    if (cmdLine.getParam(0) == "bd") {
+      int stepMin = 0; // default value
+      int stepMax = 500; // default value
+      int hitMax = 20; // default value
+      double binSize = -1; // check value
+      printf("type: Brownian dynamics");
+
+      // Read the options.
+      for (int o = 0; o < cmdLine.getOptionNum(); o++) {
+	String opt(cmdLine.getOption(o));
+	String val(cmdLine.getOptionValue(o));
+
+	if (opt == "min") {
+	  stepMin = atoi(val);
+	} else if (opt=="min") {
+	  stepMax = atoi(val);
+	} else if (opt=="hits") {
+	  hitsMax = atoi(val);
+	} else if (opt=="bin") {
+	  hitsMax = strtod(val,NULL);
+	} else {
+	  fprintf(stderr, "ERROR solver bd: Unrecognized option `%s'.\n", opt.cs());
+	  printUsage();
+	  exit(-1);
+	}
+      }
+      
+      if (binSize < -1) {
+	fprintf(stderr, "ERROR solver bd: Must set -bin to a positive value.\n");
+	exit(-1);
+      }
+      // Say the paraemters
+      printf("  binSize %g\n", binSize);
+      printf("  walksMin %d\n", walksMin);
+      printf("  walksMax %d\n", walksMax);
+      printf("  hitsMin %d\n", hitsMin);
+
+      solver = new BrownDynDiffusionSolver(binSize, walksMin, walksMax, hitsMin);
+    } else {
+      fprintf(stderr, "ERROR solver: Unrecognized type `%s'.\n", cmdLine.getParam(0).cs());
+      exit(-1);
+    }
+
+  }
+
   void prepareMonteCarlo(const CommandLineReader& cmdLine) {
     // Initialize the Monte Carlo object.
     if (cmdLine.getParamNum() == 0) {
@@ -1382,9 +1471,9 @@ private:
       } else if (opt=="seed") {
 	seed = atol(val.cs());
       } else if (opt=="global") {
-	globalPeriod = atoi(val.cs());
+	globalPeriod = atoi(val);
       } else if (opt=="cycle") {
-	stepsPerCycle = atoi(val.cs());
+	stepsPerCycle = atoi(val);
       } else {
 	fprintf(stderr, "ERROR mc: Unrecognized option `%s'.\n", opt.cs());
 	printUsage();
@@ -1409,6 +1498,12 @@ private:
     }
     printf("\n");
 
+    // We set the random seed in MC,
+    // although the Random object is now owned by the DiffusionFusion object.
+    if (seed == 0) seed = (unsigned int)time((time_t *)NULL);
+    rando->init(seed);
+    printf("Random seed %ld\n", seed);
+
     monte = new MetroMonteCarlo(fieldList, fieldDesc, mcFieldSel);
     printf("MC fields: %d\n", monte->getFieldNum());
     printf("MC field nodes: %d\n", monte->getStepsPerCycle());
@@ -1418,11 +1513,7 @@ private:
     printf("Period for attempting moves with global fields: %d\n", globalPeriod);
     printf("Period for writing output trajectory: %d\n", outputPeriod);
     printf("Period for writing preview files: %d\n", previewPeriod);
-    printf("Period for calculating statistics: %d\n", updatePeriod);
-    
-    if (seed == 0) seed = (unsigned int)time((time_t *)NULL);
-    monte->randomSeed(seed);
-    printf("Random seed %ld\n", seed);
+    printf("Period for calculating statistics: %d\n", updatePeriod);    
   }
 
   double preparePrior(const CommandLineReader& cmdLine, int pi) {
@@ -1474,12 +1565,12 @@ private:
 	  refFieldName = val;
 	  priorList[pi]->setRefField(fieldList[f]);
 	} else if (opt == "err") {
-	  uniformErr = strtod(val.cs(), NULL);
+	  uniformErr = strtod(val, NULL);
 	} else if (opt == "start") {
-	  if ( !priorList[pi]->setStartIndex(atoi(val.cs())) ) 
+	  if ( !priorList[pi]->setStartIndex(atoi(val)) ) 
 	    fprintf(stderr,"ERROR `prior known' (%d): Index %s outside of field bounds\n", pi, val.cs());
 	} else if (opt == "end") {
-	  if ( !priorList[pi]->setEndIndex(atoi(val.cs())) ) 
+	  if ( !priorList[pi]->setEndIndex(atoi(val)) ) 
 	    fprintf(stderr,"ERROR `prior known' (%d): Index %s outside of field bounds\n", pi, val.cs());
 	} else {
 	  fprintf(stderr, "ERROR 'prior known' Unrecognized option `%s'.\n", opt.cs());
@@ -1505,15 +1596,15 @@ private:
 	String val(cmdLine.getOptionValue(o));
 	
 	if (opt == "grad") {
-	  priorList[pi]->setGradStd(strtod(val.cs(),NULL));
+	  priorList[pi]->setGradStd(strtod(val,NULL));
 	} else if (opt == "dim") {
-	  priorList[pi]->setGradDim(atoi(val.cs()));
-	  priorList[pi]->setGradDim(atoi(val.cs()));
+	  priorList[pi]->setGradDim(atoi(val));
+	  priorList[pi]->setGradDim(atoi(val));
 	} else if (opt == "start") {
-	  if ( !priorList[pi]->setStartIndex(atoi(val.cs())) ) 
+	  if ( !priorList[pi]->setStartIndex(atoi(val)) ) 
 	    fprintf(stderr,"ERROR `prior smooth' (%d): Index %s outside of field bounds\n", pi, val.cs());
 	} else if (opt == "end") {
-	  if ( !priorList[pi]->setEndIndex(atoi(val.cs())) ) 
+	  if ( !priorList[pi]->setEndIndex(atoi(val)) ) 
 	    fprintf(stderr,"ERROR `prior smooth' (%d): Index %s outside of field bounds\n", pi, val.cs());
 	} else {
 	  fprintf(stderr,"ERROR `prior smooth' (%d): Unrecognized option `%s'\n", pi, opt.cs());
@@ -1620,28 +1711,6 @@ private:
     
     printf("ERROR! Invalid boolean value `%s'.\n", s.val());
     exit(-1);
-  }
-
-  static double wrapFloat(double x, double l) {
-    int image = int(floor(x/l));
-    x -= image*l;
-    return x;
-  }
-
-  static double wrapFloat(double x, double x0, double x1) {
-    double l = x1-x0;
-
-    int image = int(floor((x-x0)/l));
-    x -= image*l;
-    return x;
-  }
-
-  static double wrapDiff(double x, double x0, double x1) {
-    double l = x1-x0;
-    int image = int(floor(x/l));
-    x -= image*l;
-    if (x >= 0.5*l) x -= l;
-    return x;
   }
 
   static bool checkLine(const String& s) {
@@ -1917,9 +1986,9 @@ private:
 	int v = traj.filter->getPeriodicVar(i);
 	double pMin = traj.filter->getPeriodicMin(i);
 	double pMax = traj.filter->getPeriodicMax(i);
-	event[eventNum].var[v] = wrapFloat(event[eventNum].var[v], pMin, pMax);
-	event[eventNum].del[v] = wrapDiff(event[eventNum].del[v], pMin, pMax);
-	event[eventNum].del0[v] = wrapDiff(event[eventNum].del0[v], pMin, pMax);
+	event[eventNum].var[v] = Field::wrapFloat(event[eventNum].var[v], pMin, pMax);
+	event[eventNum].del[v] = Field::wrapDiff(event[eventNum].del[v], pMin, pMax);
+	event[eventNum].del0[v] = Field::wrapDiff(event[eventNum].del0[v], pMin, pMax);
       }
 
       bool valid = true;

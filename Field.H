@@ -126,13 +126,27 @@ public:
       return i;
     }
   }
-  // Static wrapping of floating point values, whether periodic or not.
-  static double wrapFloat(double x, double l) {
+
+  // Static wrapping of floating point values, whether the field is periodic or not.
+  inline static double wrapFloat(double x, double l) {
     int image = int(floor(x/l));
     x -= image*l;
     return x;
   }
+  inline static double wrapFloat(double x, double x0, double x1) {
+    double l = x1-x0;
 
+    int image = int(floor((x-x0)/l));
+    x -= image*l;
+    return x;
+  }
+  inline static double wrapDiff(double x, double x0, double x1) {
+    double l = x1-x0;
+    int image = int(floor(x/l));
+    x -= image*l;
+    if (x >= 0.5*l) x -= l;
+    return x;
+  }
 
   // Functions that the derived classes must implement.
   // Neighbors must include node j.

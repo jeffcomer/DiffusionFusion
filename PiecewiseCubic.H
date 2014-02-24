@@ -45,6 +45,26 @@ public:
     periodic = tab.periodic;
   }
   
+  PiecewiseCubic(const Piecewise1d& tab) {
+    n = tab.n;
+    dr = tab.dr;
+    dl = tab.dl;
+    r0 = tab.r0;
+    r1 = tab.r1;
+    periodic = tab.periodic;
+    
+    v0 = new double[n];
+    v1 = new double[n];
+    v2 = new double[n];
+    v3 = new double[n];
+    err = new double[n];
+    for (int i = 0; i < n; i++) {
+      v0[i] = tab.v0[i];
+      err[i] = tab.err[i];
+    }
+    interpolation();
+  }
+  
   PiecewiseCubic(const double* dist, const double* pot, int n0, bool periodic0) {
     v0 = NULL;
     periodic = periodic0;
