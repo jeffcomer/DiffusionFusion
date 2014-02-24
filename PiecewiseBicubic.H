@@ -533,13 +533,13 @@ public:
 
   // Wraps floating point positions depending on the periodicity.
   inline double wrapX(double x) const {
-    if (periodic) return x0 + wrapFloat(x-x0,lx);
+    if (periodic) return x0 + wrapReal(x-x0,lx);
     if (x < x0) return x0;
     if (x > x1) return x1;
     return x;
   }
   inline double wrapY(double y) const {
-    if (periodic) return y0 + wrapFloat(y-y0,ly);
+    if (periodic) return y0 + wrapReal(y-y0,ly);
     if (y < y0) return y0;
     if (y > y1) return y1;
     return y;

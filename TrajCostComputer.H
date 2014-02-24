@@ -25,6 +25,8 @@ protected:
   int trajVarMin;
   int* eventIndList;
   int blockLen;
+  // Each node of each field has events associated with it.
+  LocalCost* local;
 
 public:
   // Store variables which can be used to reconstruct gt.
@@ -33,9 +35,6 @@ public:
   double gtNumer; // displacement - mean
   double gtVar; // sigma^2
 
-private:
-  // Each node of each field has events associated with it.
-  LocalCost* local;
 public:  
   TrajCostComputer(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocalFieldInd, int trajVarMin0)
     : beta(1.0/kt), fieldList(ppf), tcFieldNum(fieldSel0.length()), fieldSel(fieldSel0), eventNum(eventNum0), event(event0), leastLocalField(ppf[leastLocalFieldInd]), leastLocalNodes(leastLocalField->length()), trajVarMin(trajVarMin0), blockLen(1) {
@@ -147,8 +146,10 @@ public:
   // Changes to a node in a field affect the events assigned
   // to that node, as well as those assigned to neighboring nodes.
   virtual double deltaCost(const TrialMove& trialMove) {
-      IndexList neigh = leastLocalField->neighbors(trialMove.node);
-
+    IndexList neigh = leastLocalField->neighbors(trialMove.node);
+    return deltaCost(trialMove,neigh);
+  }
+  virtual double deltaCost(const TrialMove& trialMove, const IndexList& neigh) {
       double dc = 0.0;
       // We got a >2 times speedup putting the parallel for here
       // instead of on the inner loop.
@@ -175,9 +176,12 @@ public:
 
   inline int tcField(int id) const { return fieldSel.find(id); }
 
-  void virtual revert(const TrialMove& trialMove) {
+  // Revert a trial move.
+  virtual void revert(const TrialMove& trialMove) {
     IndexList neigh = leastLocalField->neighbors(trialMove.node);
-
+    revert(trialMove, neigh);
+  }
+  virtual void revert(const TrialMove& trialMove, const IndexList& neigh) {
 #pragma omp parallel for
     for (int n = 0; n < neigh.length(); n++) {
       int j = neigh.get(n);

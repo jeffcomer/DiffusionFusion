@@ -19,7 +19,7 @@
 #include "HistoryReader.H"
 #include "Prior.H"
 #include "RandomGsl.H"
-#include "BrownDynDiffusionSolver.H"
+#include "BdSmoluchowskiSolver.H"
 #include "MetroMonteCarlo.H"
 #include "TrajCostComputer.H"
 
@@ -39,6 +39,7 @@
 #include "TrajIntegralLog.H"
 #include "TrajIntegralForceOrder.H"
 #include "TrajComer2d2d.H"
+#include "TrajBrownDyn.H"
 //#include "TrajMobility.H"
 //#include "TrajCylinder.H"
 //#include "TrajCylinderAxial.H"
@@ -134,8 +135,8 @@ private:
   // The pseudorandom number generator
   Random* rando;
 
-  // Diffusion equation solver object
-  DiffusionSolver* solver;
+  // Smoluchowski equation solver object
+  SmoluchowskiSolver* solver;
 
   // Monte Carlo object
   MetroMonteCarlo* monte;
@@ -1283,7 +1284,7 @@ private:
       String val(cmdLine.getOptionValue(o));
 
       if (opt == "kt") kbt = strtod(val, NULL);
-      else if (opt == "steps") subintervalSteps = itoa(val);
+      else if (opt == "steps") subintervalSteps = atoi(val);
       else if (opt == "leastLocal") {
 	// Find the field that correpsponds to the given name.
 	int f;
@@ -1388,14 +1389,14 @@ private:
   }
 
   void prepareSolver(const CommandLineReader& cmdLine) {
-    // Initialize objects that solve the diffusion equation.
+    // Initialize objects that solve the Smoluchowski equation.
     if (cmdLine.getParamNum() != 1) {
-      fprintf(stderr, "ERROR solver: You must specify one type (bd) for the diffusion equation solver\n");
+      fprintf(stderr, "ERROR solver: You must specify one type (bd) for the Smoluchowski equation solver\n");
       printUsage();
       exit(-1);
     }
     
-    printf("\nDIFFUSION EQUATION SOLVER\n");    
+    printf("\nSMOLUCHOWSKI EQUATION SOLVER\n");    
     if (cmdLine.getParam(0) == "bd") {
       int stepMin = 0; // default value
       int stepMax = 500; // default value
@@ -1433,7 +1434,7 @@ private:
       printf("  walksMax %d\n", walksMax);
       printf("  hitsMin %d\n", hitsMin);
 
-      solver = new BrownDynDiffusionSolver(binSize, walksMin, walksMax, hitsMin);
+      solver = new BdSmoluchowskiSolver(binSize, walksMin, walksMax, hitsMin);
     } else {
       fprintf(stderr, "ERROR solver: Unrecognized type `%s'.\n", cmdLine.getParam(0).cs());
       exit(-1);
@@ -1986,9 +1987,9 @@ private:
 	int v = traj.filter->getPeriodicVar(i);
 	double pMin = traj.filter->getPeriodicMin(i);
 	double pMax = traj.filter->getPeriodicMax(i);
-	event[eventNum].var[v] = Field::wrapFloat(event[eventNum].var[v], pMin, pMax);
-	event[eventNum].del[v] = Field::wrapDiff(event[eventNum].del[v], pMin, pMax);
-	event[eventNum].del0[v] = Field::wrapDiff(event[eventNum].del0[v], pMin, pMax);
+	event[eventNum].var[v] = Field::wrapReal(event[eventNum].var[v], pMin, pMax);
+	event[eventNum].del[v] = Field::wrapRealDiff(event[eventNum].del[v], pMin, pMax);
+	event[eventNum].del0[v] = Field::wrapRealDiff(event[eventNum].del0[v], pMin, pMax);
       }
 
       bool valid = true;
