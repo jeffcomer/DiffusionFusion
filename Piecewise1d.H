@@ -331,7 +331,8 @@ public:
   // Wrap a position.
   double wrapDiff(double x) const {
     int image = int(floor( (x-r0)/dl ));
-    return x - image*dl;
+    x = x - image*dl;
+
   }
 
   inline int nearestNode(const double* pos) const {
