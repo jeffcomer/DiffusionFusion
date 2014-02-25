@@ -106,6 +106,7 @@ public:
 
     // Check for NaN.
 #ifdef FUSION_DEBUG
+    //printf("e %d x %g dif %g %g %g\n", e, event[e].var[X], diffuse->computeVal(1.0),  diffuse->computeZeroOrder(1.0), diffuse->get(12));
     nanCheck(cost,'e',e,event[e].del[D],frc,gradDif,dif);
 #endif
     return cost;

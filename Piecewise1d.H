@@ -324,7 +324,7 @@ public:
   }
 
   double wrap(double x) const {
-    return wrapReal(x-r0, dl);
+    return wrapReal(x-r0, dl) + r0;
   }
   double wrapDiff(double x) const {
     return wrapRealDiff(x-r0, dl);
