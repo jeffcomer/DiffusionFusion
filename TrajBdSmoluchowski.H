@@ -46,7 +46,7 @@ public:
 
     T = 1;
     X = 0;
-
+    
     leastLocalP1d = dynamic_cast<const Piecewise1d*>(leastLocalField);
     if (leastLocalP1d == NULL) {
       fprintf(stderr,"ERROR trajCost BdSmoluchowski requires leastLocalField type linear or cubic.\n");
@@ -138,22 +138,37 @@ public:
     return -log(prob);
   }
 
+  IndexList nodeRegion(int home) const {
+    IndexList region;
+    int n0 = home - nodeHopMax[home];
+    int n1 = home + nodeHopMax[home];
+
+    // BdSmoluchowskiSolver using diffuse, which could be
+    // distinct from leastLocalField. TODO: YOU SHOULD CHECK FOR THIS!
+    if (leastLocalField->getPeriodic()) {
+      // Account for wrapping and make sure nodes are unique.
+      for (int n = n0; n <= n1; n++) {
+	int nw = leastLocalP1d->wrapNode(n);
+	if (nw == n || nw < n0) region.add(n);
+      }
+    } else {
+      if (n0 < 0) n0 = 0;
+      if (n1 >= leastLocalNodes) n1 = leastLocalNodes-1;
+
+      for (int n = n0; n <= n1; n++) region.add(n);
+    }
+    return region;
+  }
 
   ////////////////////////////////////////////////////////////////////
   // We overload deltaCost, revert because we can no longer rely on just nearby neighbors.
   virtual double deltaCost(const TrialMove& trialMove) {
-    IndexList region;
-    int n0 = trialMove.node - nodeHopMax[trialMove.node];
-    int n1 = trialMove.node + nodeHopMax[trialMove.node];
-    for (int n = n0; n <= n1; n++) region.add(n);
+    IndexList region = nodeRegion(trialMove.node);
     return TrajCostComputer::deltaCost(trialMove, region);
   }
 
 virtual void revert(const TrialMove& trialMove) {
-    IndexList region;
-    int n0 = trialMove.node - nodeHopMax[trialMove.node];
-    int n1 = trialMove.node + nodeHopMax[trialMove.node];
-    for (int n = n0; n <= n1; n++) region.add(n);
+    IndexList region = nodeRegion(trialMove.node);
     TrajCostComputer::revert(trialMove, region);
   }
 
