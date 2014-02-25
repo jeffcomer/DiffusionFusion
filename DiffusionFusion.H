@@ -1402,7 +1402,7 @@ private:
       int walksMax = 500; // default value
       int hitsMin = 20; // default value
       double binSize = -1; // check value
-      printf("type: Brownian dynamics");
+      printf("type: Brownian dynamics\n");
 
       // Read the options.
       for (int o = 0; o < cmdLine.getOptionNum(); o++) {
@@ -1424,7 +1424,7 @@ private:
 	}
       }
       
-      if (binSize < -1) {
+      if (binSize < 0.0) {
 	fprintf(stderr, "ERROR solver bd: Must set -bin to a positive value.\n");
 	exit(-1);
       }

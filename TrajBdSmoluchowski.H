@@ -47,7 +47,7 @@ public:
     T = 1;
     X = 0;
 
-    const Piecewise1d* leastLocalP1d = dynamic_cast<const Piecewise1d*>(leastLocalField);
+    leastLocalP1d = dynamic_cast<const Piecewise1d*>(leastLocalField);
     if (leastLocalP1d == NULL) {
       fprintf(stderr,"ERROR trajCost BdSmoluchowski requires leastLocalField type linear or cubic.\n");
       exit(-1);
@@ -57,9 +57,11 @@ public:
     nodeHopMax = new int[leastLocalNodes];
     solver->setParameters(beta,subintervalSteps);
 
+    // For each node, we look for the neighboring nodes affected by events beginning in this node.
+    initHopMax();
+
     updateLocal();
     cloneLast();
-    initMaxHop();
   }
 
   ~TrajBdSmoluchowski() {
@@ -95,12 +97,13 @@ public:
     }
   }
 
-  void initMaxHop() {
+  void initHopMax() {
+    printf("Initializing maximum hop distance\n");
     PiecewiseCubic zero(*leastLocalP1d);
     zero.zero();
 
     for (int n = 0; n < leastLocalNodes; n++) {
-      int ne = local[n].events.length();
+      int ne = local[n].events.length(); // set by initLocal()
 
       // Find the biggest hop from each node.
       double hopMax = 0.0;
@@ -110,11 +113,13 @@ public:
 	double x1 = x0 + event[e].del[X];
 	double tau = event[e].del[T];
 	solver->solveProb(x0, x1, tau, diffuse, force, biasFieldList[event[e].bias], hopMax);
+	// Just to be safe, try it with no force.
 	solver->solveProb(x0, x1, tau, diffuse, &zero, biasFieldList[event[e].bias], hopMax);
       }
 
-      nodeHopMax[n] = int(hopMax/deltaX)+1;
-      printf("maxHop %d %g %d\n", n, hopMax, nodeHopMax[n]);
+      // The +3 is because the change at i affects the
+      // interpolation at i+2.
+      nodeHopMax[n] = int(hopMax/deltaX)+3;
     }
   }
 
@@ -135,10 +140,12 @@ public:
       nodeHopMax[n] = int(hopMax/leastLocalP1d->getDr())+1;
     }
   }
-  
+
+  // Get the cost for an event by running Brownian Dynamics over the diffusivity and force fields.
   double eventCost(int e) {
     double hopMax = 0.0;
-    return solver->solveProb(event[e].var[X], event[e].var[X]+event[e].del[X], event[e].del[T], diffuse, force, biasFieldList[event[e].bias], hopMax);
+    double prob = solver->solveProb(event[e].var[X], event[e].var[X]+event[e].del[X], event[e].del[T], diffuse, force, biasFieldList[event[e].bias], hopMax);
+    return -log(prob);
   }
 
 

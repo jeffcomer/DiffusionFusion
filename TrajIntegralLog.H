@@ -142,7 +142,7 @@ public:
 
     // Check for NaN.
 #ifdef FUSION_DEBUG
-    nanCheck(cost,'b',dispSum,meanSum,meanSum,varSum);
+    nanCheck(cost,'b',b,dispSum,meanSum,meanSum,varSum);
 #endif
 
     return cost;

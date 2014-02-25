@@ -106,7 +106,7 @@ public:
 
     // Check for NaN.
 #ifdef FUSION_DEBUG
-    nanCheck(cost,'e',event[e].del[D],frc,gradDif,dif);
+    nanCheck(cost,'e',e,event[e].del[D],frc,gradDif,dif);
 #endif
     return cost;
   }
