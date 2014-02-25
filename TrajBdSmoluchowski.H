@@ -1,6 +1,6 @@
 // Author: Jeff Comer <jeffcomer at gmail>
-#ifndef TRAJBROWNDYN_H
-#define TRAJBROWNDYN_H
+#ifndef TRAJBDSMOLUCHOWSKI_H
+#define TRAJBDSMOLUCHOWSKI_H
 
 #include "useful.H"
 #include "Field.H"
@@ -10,7 +10,7 @@
 #include "TrajCostComputer.H"
 #include "SmoluchowskiSolver.H"
 
-class TrajBrownDyn : public TrajCostComputer {
+class TrajBdSmoluchowski : public TrajCostComputer {
 private:
   const Piecewise1d* diffuse;
   const Piecewise1d* force;
@@ -23,22 +23,22 @@ private:
   double deltaX;
 
 public:
-  TrajBrownDyn(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, const Piecewise1d** biasFieldList0, SmoluchowskiSolver* solver0, int subintervalSteps) :
+  TrajBdSmoluchowski(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, const Piecewise1d** biasFieldList0, SmoluchowskiSolver* solver0, int subintervalSteps) :
     TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 2), biasFieldList(biasFieldList0), nodeHopMax(NULL), solver(solver0) {
 
     if (tcFieldNum != 2) {
-      fprintf(stderr, "ERROR trajCost BrownDyn takes two fields: (0) diffusivity (1) force\n");
+      fprintf(stderr, "ERROR trajCost BdSmoluchowski takes two fields: (0) diffusivity (1) force\n");
       exit(-1);
     }
 
     diffuse = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(0)]);
     if (diffuse == NULL) {
-      fprintf(stderr,"ERROR trajCost BrownDyn requires field type linear or cubic.\n");
+      fprintf(stderr,"ERROR trajCost BdSmoluchowski requires field type linear or cubic.\n");
       exit(-1);
     }
     force = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(1)]);
     if (force == NULL) {
-      fprintf(stderr,"ERROR trajCost BrownDyn requires field type linear or cubic.\n");
+      fprintf(stderr,"ERROR trajCost BdSmoluchowski requires field type linear or cubic.\n");
       exit(-1);
     }
 
@@ -49,7 +49,7 @@ public:
 
     const Piecewise1d* leastLocalP1d = dynamic_cast<const Piecewise1d*>(leastLocalField);
     if (leastLocalP1d == NULL) {
-      fprintf(stderr,"ERROR trajCost BrownDyn requires leastLocalField type linear or cubic.\n");
+      fprintf(stderr,"ERROR trajCost BdSmoluchowski requires leastLocalField type linear or cubic.\n");
       exit(-1);
     }
     deltaX = leastLocalP1d->getDr();
@@ -62,7 +62,7 @@ public:
     initMaxHop();
   }
 
-  ~TrajBrownDyn() {
+  ~TrajBdSmoluchowski() {
     delete[] nodeHopMax;
   }
 
@@ -149,7 +149,7 @@ public:
     int n0 = trialMove.node - nodeHopMax[trialMove.node];
     int n1 = trialMove.node + nodeHopMax[trialMove.node];
     for (int n = n0; n <= n1; n++) region.add(n);
-    deltaCost(trialMove, region);
+    return TrajCostComputer::deltaCost(trialMove, region);
   }
 
 virtual void revert(const TrialMove& trialMove) {
@@ -157,11 +157,14 @@ virtual void revert(const TrialMove& trialMove) {
     int n0 = trialMove.node - nodeHopMax[trialMove.node];
     int n1 = trialMove.node + nodeHopMax[trialMove.node];
     for (int n = n0; n <= n1; n++) region.add(n);
-    revert(trialMove, region);
+    TrajCostComputer::revert(trialMove, region);
   }
 
   // We overload updateLocal() just so that we can update the maxHops.
-  
+  virtual double updateLocal() {
+    updateMaxHop();
+    return TrajCostComputer::updateLocal();
+  }
 
 };
 

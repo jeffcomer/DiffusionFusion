@@ -39,7 +39,7 @@
 #include "TrajIntegralLog.H"
 #include "TrajIntegralForceOrder.H"
 #include "TrajComer2d2d.H"
-#include "TrajBrownDyn.H"
+#include "TrajBdSmoluchowski.H"
 //#include "TrajMobility.H"
 //#include "TrajCylinder.H"
 //#include "TrajCylinderAxial.H"
@@ -328,7 +328,7 @@ public:
     rando = new Random();
 
     // Prepare what's left.
-    prepareSolver(*cmdList[cmdSolver]);
+    if( solverNum > 0 ) prepareSolver(*cmdList[cmdSolver]);
     prepareTrajCost(*cmdList[cmdTrajCost]);
     prepareMonteCarlo(*cmdList[cmdMc]);
 
@@ -356,7 +356,7 @@ public:
     fprintf(stdout, "\nprior scale|known|smooth field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension] [-start startingFieldIndex] [-end endingFieldIndex]\n");
     fprintf(stdout, "\nsolver type=bd [-bin binSize] [-min walksMin] [-max walksMax] [-hits hitsMin]\n");
     fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
-    fprintf(stdout, "\ntrajCost ccg|ccgPmf|ccgLog|integral|integralForce|IntegralLog|langevinExp field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-steps subintervalSteps]\n");
+    fprintf(stdout, "\ntrajCost ccg|ccgPmf|ccgLog|integral|integralForce|IntegralLog|langevinExp|smolBd field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-steps subintervalSteps]\n");
     fprintf(stdout, "\ndump events|fields|distro|best|eventCost dumpFile\n");
     fprintf(stdout, "\t*Note: A '%%' in dumpFile is substituted with 'output'.\n");
   }
@@ -1336,9 +1336,9 @@ private:
        trajCost = new TrajComer2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg2d2d") {
        trajCost = new TrajComer2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-    } else if (type == "longBd") {
-      trajCost = new TrajBrownDyn((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, solver, subintervalSteps);
-      if (subintervalSteps < 2) fprintf(stderr,"Warning: TrajBrownDyn is meant to be used with subintervalSteps > 1. Unless you are doing testing, add '-steps' to the trajectory command.\n");
+    } else if (type == "smoluchowski") {
+      trajCost = new TrajBdSmoluchowski((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, solver, subintervalSteps);
+      if (subintervalSteps < 2) fprintf(stderr,"Warning: TrajBdSmoluchowski is meant to be used with subintervalSteps > 1. Unless you are doing testing, add '-steps' to the trajectory command.\n");
     } else if (type == "integral") {
       trajCost = new TrajIntegral((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
       if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegral is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
@@ -1398,9 +1398,9 @@ private:
     
     printf("\nSMOLUCHOWSKI EQUATION SOLVER\n");    
     if (cmdLine.getParam(0) == "bd") {
-      int stepMin = 0; // default value
-      int stepMax = 500; // default value
-      int hitMax = 20; // default value
+      int walksMin = 0; // default value
+      int walksMax = 500; // default value
+      int hitsMin = 20; // default value
       double binSize = -1; // check value
       printf("type: Brownian dynamics");
 
@@ -1410,13 +1410,13 @@ private:
 	String val(cmdLine.getOptionValue(o));
 
 	if (opt == "min") {
-	  stepMin = atoi(val);
+	  walksMin = atoi(val);
 	} else if (opt=="min") {
-	  stepMax = atoi(val);
+	  walksMax = atoi(val);
 	} else if (opt=="hits") {
-	  hitsMax = atoi(val);
+	  hitsMin = atoi(val);
 	} else if (opt=="bin") {
-	  hitsMax = strtod(val,NULL);
+	  binSize = strtod(val,NULL);
 	} else {
 	  fprintf(stderr, "ERROR solver bd: Unrecognized option `%s'.\n", opt.cs());
 	  printUsage();
@@ -1434,7 +1434,7 @@ private:
       printf("  walksMax %d\n", walksMax);
       printf("  hitsMin %d\n", hitsMin);
 
-      solver = new BdSmoluchowskiSolver(binSize, walksMin, walksMax, hitsMin);
+      solver = new BdSmoluchowskiSolver(binSize, walksMin, walksMax, hitsMin, rando);
     } else {
       fprintf(stderr, "ERROR solver: Unrecognized type `%s'.\n", cmdLine.getParam(0).cs());
       exit(-1);
@@ -1505,7 +1505,7 @@ private:
     rando->init(seed);
     printf("Random seed %ld\n", seed);
 
-    monte = new MetroMonteCarlo(fieldList, fieldDesc, mcFieldSel);
+    monte = new MetroMonteCarlo(fieldList, fieldDesc, mcFieldSel, rando);
     printf("MC fields: %d\n", monte->getFieldNum());
     printf("MC field nodes: %d\n", monte->getStepsPerCycle());
     printf("MC local fields: %d\n", monte->getLocalFieldNum());
