@@ -26,6 +26,7 @@ public:
   }
 
   // Get the probability of a hop from x0 to x1.
+  // forceBias is allowed to be NULL, in which case the bias force is assumed to be zero.
   virtual double solveProb(double x0, double x1, double tau, const Piecewise1d* diffuse, const Piecewise1d* forceSys, const Piecewise1d* forceBias, double& hopMax) const {
     if (beta < 0.0) {
       fprintf(stderr,"ERROR BdSmoluchowskiSolver::solveProb You must call setParameters() first to set the physical parameters.\n");
@@ -56,9 +57,10 @@ public:
   // Run a set of Brownian dynamics steps.
   double brownDyn(double x0, double dt, const Piecewise1d* diffuse, const Piecewise1d* forceSys, const Piecewise1d* forceBias) const {
     double x = x0;
-    
+
     for (int s = 0; s < steps; s++) {
-      double frc = forceSys->computeVal(x) + forceBias->computeVal(x);
+      double frc = forceSys->computeVal(x);
+      if (forceBias != NULL) frc += forceBias->computeVal(x);
       double dif, gradDif;
       diffuse->computeValGrad(x, dif, gradDif);
       x += (beta*frc*dif + gradDif)*dt + sqrt(2.0*dif*dt)*rando->gaussian();

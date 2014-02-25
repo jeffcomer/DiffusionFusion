@@ -15,7 +15,7 @@ private:
   const Piecewise1d* diffuse;
   const Piecewise1d* force;
   const Piecewise1d** biasFieldList;
-  int T, X;;
+  int T, X;
   // Maximum node hop made by events in each node.
   const Piecewise1d* leastLocalP1d;
   int* nodeHopMax;
@@ -52,14 +52,16 @@ public:
       fprintf(stderr,"ERROR trajCost BdSmoluchowski requires leastLocalField type linear or cubic.\n");
       exit(-1);
     }
-    deltaX = leastLocalP1d->getDr();
 
-    nodeHopMax = new int[leastLocalNodes];
+    // Set some physical parameters.
     solver->setParameters(beta,subintervalSteps);
 
     // For each node, we look for the neighboring nodes affected by events beginning in this node.
-    initHopMax();
-
+    deltaX = leastLocalP1d->getDr();
+    nodeHopMax = new int[leastLocalNodes];
+    for (int n = 0; n < leastLocalNodes; n++) nodeHopMax[n] = 3;
+    updateHopMax();
+    
     updateLocal();
     cloneLast();
   }
@@ -97,33 +99,12 @@ public:
     }
   }
 
-  void initHopMax() {
-    printf("Initializing maximum hop distance\n");
-    PiecewiseCubic zero(*leastLocalP1d);
-    zero.zero();
+  // Estimate the maximum hop distance for BD from each node.
+  void updateHopMax() {
+    /// In case we wanted a zero force.
+    //PiecewiseCubic zero(*leastLocalP1d);
+    //zero.zero();
 
-    for (int n = 0; n < leastLocalNodes; n++) {
-      int ne = local[n].events.length(); // set by initLocal()
-
-      // Find the biggest hop from each node.
-      double hopMax = 0.0;
-      for (int le = 0; le < ne; le++) {
-	int e = local[n].events.get(le);
-	double x0 = event[e].var[X];
-	double x1 = x0 + event[e].del[X];
-	double tau = event[e].del[T];
-	solver->solveProb(x0, x1, tau, diffuse, force, biasFieldList[event[e].bias], hopMax);
-	// Just to be safe, try it with no force.
-	solver->solveProb(x0, x1, tau, diffuse, &zero, biasFieldList[event[e].bias], hopMax);
-      }
-
-      // The +3 is because the change at i affects the
-      // interpolation at i+2.
-      nodeHopMax[n] = int(hopMax/deltaX)+3;
-    }
-  }
-
-  void updateMaxHop() {
     for (int n = 0; n < leastLocalNodes; n++) {
       int ne = local[n].events.length();
 
@@ -133,18 +114,27 @@ public:
 	int e = local[n].events.get(le);
 	double x0 = event[e].var[X];
 	double x1 = x0 + event[e].del[X];
-	double tau = event[e].del[T];
-	solver->solveProb(x0, x1, tau, diffuse, force, biasFieldList[event[e].bias], hopMax);
+	const Piecewise1d* biasField = (event[e].bias < 0)?NULL:biasFieldList[event[e].bias];
+	solver->solveProb(x0, x1, event[e].del[T], diffuse, force, biasField, hopMax);
       }
 
-      nodeHopMax[n] = int(hopMax/leastLocalP1d->getDr())+1;
+      // The +3 is because the change at i affects the
+      // interpolation at i+2.
+      int oldHopMax = nodeHopMax[n];
+      nodeHopMax[n] = int(hopMax/deltaX)+3;
+      //#ifdef FUSION_DEBUG
+	if (abs(oldHopMax - nodeHopMax[n]) > 1) printf("nodeHopMax node %d changed from %d to %d\n", n, oldHopMax, nodeHopMax[n]);
+      //#endif
     }
   }
 
   // Get the cost for an event by running Brownian Dynamics over the diffusivity and force fields.
   double eventCost(int e) {
     double hopMax = 0.0;
-    double prob = solver->solveProb(event[e].var[X], event[e].var[X]+event[e].del[X], event[e].del[T], diffuse, force, biasFieldList[event[e].bias], hopMax);
+    double x0 = event[e].var[X];
+    double x1 = x0 + event[e].del[X];
+    const Piecewise1d* biasField = (event[e].bias < 0)?NULL:biasFieldList[event[e].bias];
+    double prob = solver->solveProb(x0, x1, event[e].del[T], diffuse, force, biasField, hopMax);
     return -log(prob);
   }
 
@@ -167,9 +157,9 @@ virtual void revert(const TrialMove& trialMove) {
     TrajCostComputer::revert(trialMove, region);
   }
 
-  // We overload updateLocal() just so that we can update the maxHops.
+  // We overload updateLocal() just so that we can update the maximum hops.
   virtual double updateLocal() {
-    updateMaxHop();
+    updateHopMax();
     return TrajCostComputer::updateLocal();
   }
 

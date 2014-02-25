@@ -1398,8 +1398,8 @@ private:
     
     printf("\nSMOLUCHOWSKI EQUATION SOLVER\n");    
     if (cmdLine.getParam(0) == "bd") {
-      int walksMin = 0; // default value
-      int walksMax = 500; // default value
+      int walksMin = 40; // default value
+      int walksMax = 1000; // default value
       int hitsMin = 20; // default value
       double binSize = -1; // check value
       printf("type: Brownian dynamics\n");
@@ -1411,7 +1411,7 @@ private:
 
 	if (opt == "min") {
 	  walksMin = atoi(val);
-	} else if (opt=="min") {
+	} else if (opt=="max") {
 	  walksMax = atoi(val);
 	} else if (opt=="hits") {
 	  hitsMin = atoi(val);
