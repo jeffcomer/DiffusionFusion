@@ -58,7 +58,7 @@ public:
       // I'll skip that for now.
       int minSamples = fullSamples/2;
       for (int i = 0; i < n; i++) {
-	int count = ppCount[f]->get(i);
+	int count = int(ppCount[f]->get(i));
 	if (count < fullSamples) {
 	  // We scale the bias with respect to fullSamples as in the colvars module.
 	  double fact = ( count < minSamples )? 0.0 : ((double(count - minSamples)) / double(fullSamples - minSamples));

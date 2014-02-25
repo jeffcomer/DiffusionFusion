@@ -279,7 +279,11 @@ public:
     printf("  mc %d\n", mcNum);
     printf("  trajCost %d\n", trajCostNum);
     printf("  dump %d\n", dumpNum);
-    
+
+    // Try to flush the output before loading files.
+    fflush(stdout);
+    fflush(stderr);    
+
     printf("\nLoading the trajectory files.\n");
     prepareTrajectory(*cmdList[cmdTraj]);
     prepareData(cmdLoad, cmdLoadMany, cmdLoadEvents);
@@ -436,6 +440,10 @@ public:
       fieldAccept[f] = 0;
     }
 
+    // Try to write the log before we begin.
+    fflush(stdout);
+    fflush(stderr);
+
     // A cycle consists of mcCycles MC steps, where mcCycles is the
     // number field nodes modified by the MC procedure.
     for (int cycle = 1; cycle <= mcCycles; cycle++) {
@@ -503,6 +511,8 @@ public:
 
       // Output information on the progress.
       if (cycle % updatePeriod == 0) {
+	fflush(stderr);
+	fflush(stdout);
 
 	double costMean = costSum/count;
 	double costStd = sqrt( (costSumSq - costSum*costSum/count)/(count-1) );
@@ -1338,7 +1348,7 @@ private:
        trajCost = new TrajComer2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "smoluchowski") {
       trajCost = new TrajBdSmoluchowski((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, solver, subintervalSteps);
-      if (subintervalSteps < 2) fprintf(stderr,"Warning: TrajBdSmoluchowski is meant to be used with subintervalSteps > 1. Unless you are doing testing, add '-steps' to the trajectory command.\n");
+      if (subintervalSteps < 2) fprintf(stderr,"Warning: TrajBdSmoluchowski is meant to be used with subintervalSteps > 1. Unless you are doing testing, add '-steps' to the trajCost command.\n");
     } else if (type == "integral") {
       trajCost = new TrajIntegral((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
       if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegral is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
