@@ -67,7 +67,7 @@ public:
 
 
   virtual ~TrajCostComputer() {
-    delete[] event;
+    // I'm not sure why we were deallocating event here, it's owned by DiffusionFusion.
     delete[] local;
     delete[] eventIndList;
   }
