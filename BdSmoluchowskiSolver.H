@@ -40,13 +40,17 @@ public:
     int w = 0;
     while( w <= walksMax && (w<walksMin || hits<hitsMin) ) {
       double xf = brownDyn(x0, dt, diffuse, forceSys, forceBias);
-      double dx = fabs(xf-x1);
+      double dx0 = fabs(xf-x0);
+      double dx1 = fabs(xf-x1);
       // Periodicity is surmised from `diffuse'.
-      if (diffuse->getPeriodic()) dx = diffuse->wrapDiff(dx);
-      if (dx > hopMax) hopMax = dx;
+      if (diffuse->getPeriodic()) {
+	dx0 = diffuse->wrapDiff(dx0);
+	dx1 = diffuse->wrapDiff(dx1);
+      }
+      if (dx0 > hopMax) hopMax = dx0;
 
       // Did we land near the bin in question?
-      if (dx < binRad) hits++;
+      if (dx1 < binRad) hits++;
       w++;
     }
 
