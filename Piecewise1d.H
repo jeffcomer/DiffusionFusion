@@ -327,7 +327,7 @@ public:
     return wrapReal(x-r0, dl) + r0;
   }
   double wrapDiff(double x) const {
-    return wrapRealDiff(x-r0, dl);
+    return wrapRealDiff(x, dl);
   }
 
   inline int nearestNode(const double* pos) const {

@@ -142,8 +142,17 @@ public:
       v1[i] *= s;
       v2[i] *= s;
       v3[i] *= s;
-      e0 = v3[n-1] + v2[n-1] + v1[n-1] + v0[n-1];
     }
+    e0 = v3[n-1] + v2[n-1] + v1[n-1] + v0[n-1];
+  }
+
+  // We can shift without recalculating the whole interpolant.
+  // This should be slightly faster than reinterpolation.
+  void shift(double s) {
+    for (int i = 0; i < n; i++) {
+      v0[i] += s;
+    }
+    e0 = v3[n-1] + v2[n-1] + v1[n-1] + v0[n-1];
   }
 
  double computeGrad(double d) const {

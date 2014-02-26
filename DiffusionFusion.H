@@ -20,6 +20,7 @@
 #include "Prior.H"
 #include "RandomGsl.H"
 #include "BdSmoluchowskiSolver.H"
+#include "BenesiSmolSolver.H"
 #include "MetroMonteCarlo.H"
 #include "TrajCostComputer.H"
 
@@ -1432,12 +1433,13 @@ private:
 	  printUsage();
 	  exit(-1);
 	}
+
+	if (binSize < 0.0) {
+	  fprintf(stderr, "ERROR solver bd: Must set -bin to a positive value.\n");
+	  exit(-1);
+	}
       }
-      
-      if (binSize < 0.0) {
-	fprintf(stderr, "ERROR solver bd: Must set -bin to a positive value.\n");
-	exit(-1);
-      }
+
       // Say the paraemters
       printf("  binSize %g\n", binSize);
       printf("  walksMin %d\n", walksMin);
@@ -1445,6 +1447,38 @@ private:
       printf("  hitsMin %d\n", hitsMin);
 
       solver = new BdSmoluchowskiSolver(binSize, walksMin, walksMax, hitsMin, rando);
+
+    } else if (cmdLine.getParam(0) == "benesi") {
+      printf("type: Benesi\n");
+
+      int binField = -1;
+      // Read the options.
+      for (int o = 0; o < cmdLine.getOptionNum(); o++) {
+	String opt(cmdLine.getOption(o));
+	String val(cmdLine.getOptionValue(o));
+
+	if (opt == "field") {
+	  int f;
+	  for (f = 0; f < fieldNum; f++) if (fieldDesc[f].name == val) break;
+	  if (f == fieldNum) {	
+	    fprintf(stderr, "ERROR solver benesi: field `%s' has not been defined by a field command.\n", val.cs());
+	    exit(-1);
+	  }
+	  binField = f;
+
+	} else {
+	  fprintf(stderr, "ERROR solver Benesi: Unrecognized option `%s'.\n", opt.cs());
+	  exit(-1);
+	}
+      }
+
+      if (binField < 0) {
+	fprintf(stderr, "ERROR solver Benesi: Must specify a field for the bins with -field.\n");
+	exit(-1);
+      }
+
+      solver = new BenesiSmolSolver(*fieldList[binField]);
+      
     } else {
       fprintf(stderr, "ERROR solver: Unrecognized type `%s'.\n", cmdLine.getParam(0).cs());
       exit(-1);

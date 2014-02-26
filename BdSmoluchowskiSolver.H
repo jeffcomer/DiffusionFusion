@@ -27,7 +27,7 @@ public:
 
   // Get the probability of a hop from x0 to x1.
   // forceBias is allowed to be NULL, in which case the bias force is assumed to be zero.
-  virtual double solveProb(double x0, double x1, double tau, const Piecewise1d* diffuse, const Piecewise1d* forceSys, const Piecewise1d* forceBias, double& hopMax) const {
+  virtual double solveProb(double x0, double x1, double tau, const Piecewise1d* diffuse, const Piecewise1d* forceSys, const Piecewise1d* forceBias, double& hopMax) {
     if (beta < 0.0) {
       fprintf(stderr,"ERROR BdSmoluchowskiSolver::solveProb You must call setParameters() first to set the physical parameters.\n");
       exit(-1);
@@ -40,12 +40,16 @@ public:
     int w = 0;
     while( w <= walksMax && (w<walksMin || hits<hitsMin) ) {
       double xf = brownDyn(x0, dt, diffuse, forceSys, forceBias);
-      double dx0 = fabs(xf-x0);
-      double dx1 = fabs(xf-x1);
       // Periodicity is surmised from `diffuse'.
+      double dx0 = xf - x0;
+      double dx1 = xf - x1;
       if (diffuse->getPeriodic()) {
-	dx0 = diffuse->wrapDiff(dx0);
-	dx1 = diffuse->wrapDiff(dx1);
+	dx0 = fabs(diffuse->wrapDiff(dx0));
+	dx1 = fabs(diffuse->wrapDiff(dx1));
+	//printf("x0 %g xf %g dx0 %g\n", x0, xf, dx0);
+      } else {
+	dx0 = fabs(dx0);
+	dx1 = fabs(dx1);
       }
       if (dx0 > hopMax) hopMax = dx0;
 

@@ -123,7 +123,7 @@ public:
       int oldHopMax = nodeHopMax[n];
       nodeHopMax[n] = int(hopMax/deltaX)+3;
       //#ifdef FUSION_DEBUG
-	if (abs(oldHopMax - nodeHopMax[n]) > 1) printf("nodeHopMax node %d changed from %d to %d\n", n, oldHopMax, nodeHopMax[n]);
+	if (abs(oldHopMax - nodeHopMax[n]) > 2) printf("nodeHopMax node %d changed from %d to %d\n", n, oldHopMax, nodeHopMax[n]);
       //#endif
     }
   }
