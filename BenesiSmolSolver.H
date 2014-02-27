@@ -163,7 +163,7 @@ public:
       //printf("prob %g\n", probDen*binDx);
     }
 
-    hopMax = 0.5*binDx*regionNum;
+    if (0.5*binDx*regionNum > hopMax) hopMax = 0.5*binDx*regionNum;
     // Return the probability in the desired bin.
     return pbCurr->get(indF)*binDx;
   }

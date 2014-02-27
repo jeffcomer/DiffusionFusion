@@ -11,8 +11,7 @@
 class TrajComer2d : public TrajCostComputer {
 private:
   const PiecewiseBicubic* diffuse;
-  const PiecewiseBicubic* pmf;
-  const PiecewiseCubic* mass;
+  const PiecewiseBicubic* forceX;
   int T, X, Y, D, FB;
 
 public:
@@ -20,7 +19,7 @@ public:
     TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 5) {
 
     if (tcFieldNum != 2) {
-      fprintf(stderr, "ERROR trajCost ccg2d takes three fields: (0) diffusivity (1) pmf \n");
+      fprintf(stderr, "ERROR trajCost ccg2d takes two fields: (0) diffusivity (1) forceX \n");
       exit(-1);
     }
 
@@ -29,8 +28,8 @@ public:
        fprintf(stderr,"ERROR trajCost comer2d requires field type bicubic.\n");
        exit(-1);
     }
-    pmf = dynamic_cast<const PiecewiseBicubic*>(fieldList[fieldSel.get(1)]);
-    if (pmf == NULL) {
+    forceX = dynamic_cast<const PiecewiseBicubic*>(fieldList[fieldSel.get(1)]);
+    if (forceX == NULL) {
        fprintf(stderr,"ERROR trajCost comer2d requires field type bicubic.\n");
        exit(-1);
     }
@@ -52,7 +51,7 @@ public:
     Y = eventIndList[2];
     D = eventIndList[3];
     FB = eventIndList[4];
-    for (int i = 0; i < 5; i++) printf("eventIndList[%d] = %d\n", i, eventIndList[i]);
+    for (int i = 0; i < 5; i++) printf("eventIndList[%d] = %d %s\n", i, eventIndList[i], eventVarName(i).cs());
   }
   // Event variables.
   String eventVarName(int ind) const {
@@ -77,7 +76,7 @@ public:
     case 0:
       return String("diffusivity");
     case 1:
-      return String("pmf");
+      return String("forceX");
     default:
       return String("UNKNOWN");
     }
@@ -99,7 +98,7 @@ public:
 
   double eventCost(int e) {
     // Sum of forceBias and forceSys.
-    double frc = event[e].var[FB] - pmf->computeGradX(event[e].var[X], event[e].var[Y]);
+    double frc = event[e].var[FB] + forceX->computeVal(event[e].var[X], event[e].var[Y]);
     // The diffusivity and its gradient.
     double dif = diffuse->computeVal(event[e].var[X], event[e].var[Y]);
     double gradDifX = diffuse->computeGradX(event[e].var[X], event[e].var[Y]);

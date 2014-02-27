@@ -27,6 +27,7 @@
 // Various types of trajectory cost calculators, some experimental.
 #include "TrajComerPmf.H"
 #include "TrajComer2d.H"
+#include "TrajComerPmf2d.H"
 //#include "TrajComerPmfLinear.H"
 #include "TrajLangevin.H"
 #include "TrajLangevinExp.H"
@@ -40,6 +41,7 @@
 #include "TrajIntegralLog.H"
 #include "TrajIntegralForceOrder.H"
 #include "TrajComer2d2d.H"
+#include "TrajComerPmf2d2d.H"
 #include "TrajBdSmoluchowski.H"
 //#include "TrajMobility.H"
 //#include "TrajCylinder.H"
@@ -98,6 +100,8 @@ private:
   int outputPeriod, previewPeriod, updatePeriod;
   // Period for possible trial moves on global variables.
   int globalPeriod;
+  // The largest relative error between locally computed costs and the global cost that we permit.
+  double relErrMax;
 
   // Descriptions of the trajectory variables.
   int trajVarNum;
@@ -360,8 +364,8 @@ public:
     fprintf(stdout, "\t*Note: -global permits parameters that affect all nodes.\n");
     fprintf(stdout, "\nprior scale|known|smooth field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension] [-start startingFieldIndex] [-end endingFieldIndex]\n");
     fprintf(stdout, "\nsolver type=bd [-bin binSize] [-min walksMin] [-max walksMax] [-hits hitsMin]\n");
-    fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
-    fprintf(stdout, "\ntrajCost ccg|ccgPmf|ccgLog|integral|integralForce|IntegralLog|langevinExp|smolBd field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-steps subintervalSteps]\n");
+    fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -tol relErrMax -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
+    fprintf(stdout, "\ntrajCost ccg|ccgPmf|ccg2d|ccgLog|integral|integralForce|IntegralLog|langevinExp|smolBd field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-steps subintervalSteps]\n");
     fprintf(stdout, "\ndump events|fields|distro|best|eventCost dumpFile\n");
     fprintf(stdout, "\t*Note: A '%%' in dumpFile is substituted with 'output'.\n");
   }
@@ -565,11 +569,12 @@ public:
 	printf("  costUpdate %.15g\n", costUpdate);
 	printf("  costErr %.15g\n", lastCost - costUpdate);
 	printf("  costRelErr %.15g\n", costRelErr);
-	if ( costRelErr > 1e-3 ) {
+	if ( costRelErr > relErrMax ) {
 	  fprintf(stdout, "ERROR Large difference between locally accumulated cost and global cost.\n");
 	  fprintf(stdout, "|costAcc - costGlobal|/costStd = %.15g\n", costRelErr);
 	  fprintf(stdout, "Are global fields declared with `-global 1'?\n");
-	  fprintf(stdout, "Try setting `-leastLocal'.\n");
+	  fprintf(stdout, "Try setting `-leastLocal' to the grid with the widest grid spacing,\n");
+	  fprintf(stdout, "or making the grid spacing of your MC fields identical.\n");
 	  fprintf(stdout, "Other options include decreasing `-update' or `-cycle'.\n");
 	  fprintf(stdout, "Could also indicate a bug in the chosen trajCost method.\n");
 	  if (stepsPerCycle == 1)  {
@@ -1345,8 +1350,13 @@ private:
       trajCost = new TrajLangevinExp2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg2d") {
        trajCost = new TrajComer2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+    } else if (type == "ccgPmf2d") {
+       trajCost = new TrajComerPmf2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+       printf("Note that the PMF given by ccgPmf2d is defined only up to a constant function of the second dimension.\n");
     } else if (type == "ccg2d2d") {
        trajCost = new TrajComer2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+    } else if (type == "ccgPmf2d2d") {
+       trajCost = new TrajComerPmf2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "smoluchowski") {
       trajCost = new TrajBdSmoluchowski((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, solver, subintervalSteps);
       if (subintervalSteps < 2) fprintf(stderr,"Warning: TrajBdSmoluchowski is meant to be used with subintervalSteps > 1. Unless you are doing testing, add '-steps' to the trajCost command.\n");
@@ -1497,6 +1507,7 @@ private:
     outputPeriod = 10; // default value
     previewPeriod = 100; // default value
     updatePeriod = 1; // default value
+    relErrMax = 1e-3; // default value
     globalPeriod = 10; // default value
     long int seed = 0;
     int stepsPerCycle = -1; // stepsPerCycle defaults to the total nodes in all MC fields
@@ -1513,6 +1524,8 @@ private:
 	previewPeriod = atoi(val);
       } else if (opt=="update") {
 	updatePeriod = atoi(val);
+      } else if (opt=="tol") {
+	relErrMax = strtod(val, NULL);
       } else if (opt=="seed") {
 	seed = atol(val.cs());
       } else if (opt=="global") {
@@ -1559,6 +1572,7 @@ private:
     printf("Period for writing output trajectory: %d\n", outputPeriod);
     printf("Period for writing preview files: %d\n", previewPeriod);
     printf("Period for calculating statistics: %d\n", updatePeriod);    
+    printf("Maximum permitted error between the locally accumulated cost and the global cost: %g\n", relErrMax); 
   }
 
   double preparePrior(const CommandLineReader& cmdLine, int pi) {

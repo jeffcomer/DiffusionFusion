@@ -11,8 +11,8 @@
 class TrajComer2d2d : public TrajCostComputer {
 private:
   const PiecewiseBicubic* diffuse;
-  const PiecewiseBicubic* pmf;
-  const PiecewiseCubic* mass;
+  const PiecewiseBicubic* forceX;
+  const PiecewiseBicubic* forceY;
   int T, X, Y, DX, DY, FBX, FBY;
   double invSqrt2;
 
@@ -21,7 +21,7 @@ public:
     TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 7), invSqrt2(1.0/sqrt(2.0)) {
 
     if (tcFieldNum != 2) {
-      fprintf(stderr, "ERROR trajCost ccg2d2d takes three fields: (0) diffusivity (1) pmf \n");
+      fprintf(stderr, "ERROR trajCost ccg2d2d takes three fields: (0) diffusivity (1) forceX (2) forceY \n");
       exit(-1);
     }
 
@@ -30,8 +30,13 @@ public:
        fprintf(stderr,"ERROR trajCost ccg2d2d requires field type bicubic.\n");
        exit(-1);
     }
-    pmf = dynamic_cast<const PiecewiseBicubic*>(fieldList[fieldSel.get(1)]);
-    if (pmf == NULL) {
+    forceX = dynamic_cast<const PiecewiseBicubic*>(fieldList[fieldSel.get(1)]);
+    if (forceX == NULL) {
+       fprintf(stderr,"ERROR trajCost ccg2d2d requires field type bicubic.\n");
+       exit(-1);
+    }
+    forceY = dynamic_cast<const PiecewiseBicubic*>(fieldList[fieldSel.get(1)]);
+    if (forceY == NULL) {
        fprintf(stderr,"ERROR trajCost ccg2d2d requires field type bicubic.\n");
        exit(-1);
     }
@@ -86,7 +91,9 @@ public:
     case 0:
       return String("diffusivity");
     case 1:
-      return String("pmf");
+      return String("forceX");
+    case 2:
+      return String("forceY");
     default:
       return String("UNKNOWN");
     }
@@ -109,8 +116,8 @@ public:
 
   double eventCost(int e) {
     // Sum of forceBias and forceSys.
-    double fx = event[e].var[FBX] - pmf->computeGradX(event[e].var[X], event[e].var[Y]);
-    double fy = event[e].var[FBY] - pmf->computeGradY(event[e].var[X], event[e].var[Y]);
+    double fx = event[e].var[FBX] + forceX->computeVal(event[e].var[X], event[e].var[Y]);
+    double fy = event[e].var[FBY] + forceY->computeVal(event[e].var[X], event[e].var[Y]);
     // The diffusivity and its gradient.
     double dif = diffuse->computeVal(event[e].var[X], event[e].var[Y]);
     double gradDifX = diffuse->computeGradX(event[e].var[X], event[e].var[Y]);
