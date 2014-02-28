@@ -21,18 +21,34 @@ int countValueLines(const char* fileName) {
   return count;
 }
 
-int readValueLines(const char* fileName, double* val) {
+int readValueLines(const char* fileName, int column, double* val) {
   FILE* inp = fopen(fileName, "r");
   char line[STRLEN];
   int count = 0;
+  int ln = 0;
 
   while (fgets(line, STRLEN, inp) != NULL) {
+    ln++;
     // Ignore comments.
-    int len = strlen(line);
     if (line[0] == '#') continue;
-    if (len < 2) continue;
 
-    val[count] = strtod(line, NULL);
+    String s(line);
+    // Ignore empty lines.
+    s = s.trim();
+    if (s.length() == 0) continue;
+
+    // Check for the right number of columns.
+    int tokN = s.tokenCount();
+    if (tokN <= column) {
+      fprintf(stderr, "ERROR line %d of file `%s' has too few columns (%d of %d).\n", ln, fileName, tokN, column);
+      exit(-1);
+    }
+
+    // Get the desired line.
+    String* tokList = new String[tokN];
+    s.tokenize(tokList);
+    
+    val[count] = strtod(tokList[column], NULL);
     count++;
   }
   fclose(inp);
@@ -43,14 +59,18 @@ int readValueLines(const char* fileName, double* val) {
 ////////////////////////////////////////////////////////////////////////////////
 // Driver
 int main(int argc, const char* argv[]) {
-  if (argc != 4) {
-    printf("Usage: %s dataFile inDxFile outDxFile\n", argv[0]);
+  if (argc != 4 && argc != 5) {
+    printf("Usage: %s dataFile [dataColumn] inDxFile outDxFile\n", argv[0]);
     exit(0);
   }
 
-  const char* dataFile = argv[1];  
-  const char* dxFile = argv[2];
+  const char* dataFile = argv[1];
+  const char* dxFile = argv[argc-2];
   const char* outFile = argv[argc-1];
+
+  // Column from which the data is chosen.
+  int dataCol = 0;
+  if (argc == 5) dataCol = atoi(argv[2]);
 
   PiecewiseBicubic field(dxFile, false);
   int fieldN = field.length();
@@ -62,7 +82,7 @@ int main(int argc, const char* argv[]) {
   }
   
   double* val = new double[dataN];
-  readValueLines(dataFile, val);
+  readValueLines(dataFile, dataCol, val);
   for (int i = 0; i < dataN; i++) field.set(i,val[i]);
   
   field.write(outFile);

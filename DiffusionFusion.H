@@ -42,6 +42,7 @@
 #include "TrajIntegralForceOrder.H"
 #include "TrajComer2d2d.H"
 #include "TrajComerPmf2d2d.H"
+#include "TrajComer2d2d2d.H"
 #include "TrajBdSmoluchowski.H"
 //#include "TrajMobility.H"
 //#include "TrajCylinder.H"
@@ -1357,6 +1358,8 @@ private:
        trajCost = new TrajComer2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccgPmf2d2d") {
        trajCost = new TrajComerPmf2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+    } else if (type == "ccg2d2d2d") {
+       trajCost = new TrajComer2d2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "smoluchowski") {
       trajCost = new TrajBdSmoluchowski((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, solver, subintervalSteps);
       if (subintervalSteps < 2) fprintf(stderr,"Warning: TrajBdSmoluchowski is meant to be used with subintervalSteps > 1. Unless you are doing testing, add '-steps' to the trajCost command.\n");
