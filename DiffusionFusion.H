@@ -149,8 +149,9 @@ private:
   IndexList mcFieldSel;
   int mcCycles;
 
-  // The object where the magic happens.
-  TrajCostComputer* trajCost;
+  // The objects where the magic happens.
+  int trajCostNum;
+  TrajCostComputer** trajCostList;
 
   // Dump control
   static const int dumpTypeNum = 7;
@@ -164,7 +165,7 @@ private:
   String dumpFile[dumpTypeNum];
 
 public:
-  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), dispFileMax(30), biasHistoryList(NULL), totalTrajFileNum(0), biasFieldNum(0), biasFieldList(NULL), blockNum(0), blockInd(0), eventMax(1), eventNum(0), event(NULL), fieldNum(0), fieldList(NULL), priorNum(0), priorList(NULL), rando(NULL), solver(NULL), monte(NULL), mcCycles(0), trajCost(NULL) {
+  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), dispFileMax(30), biasHistoryList(NULL), totalTrajFileNum(0), biasFieldNum(0), biasFieldList(NULL), blockNum(0), blockInd(0), eventMax(1), eventNum(0), event(NULL), fieldNum(0), fieldList(NULL), priorNum(0), priorList(NULL), rando(NULL), solver(NULL), monte(NULL), mcCycles(0), trajCostList(NULL) {
     // Read the configuration file.
     cmdNum = countLines(cmdFile.cs(), IndexList(0));
     cmdList = new CommandLineReader*[cmdNum];
@@ -173,9 +174,9 @@ public:
     printf("Read %d commands from `%s'.\n", cmdNum, cmdFile.cs());
 
     printf("Organizing commands.\n");
-    int trajCostNum = 0, solverNum = 0, mcNum = 0, trajNum = 0, outputNum = 0, dumpNum = 0;
-    int cmdTrajCost = 0, cmdSolver = 0, cmdMc = 0, cmdTraj = 0;
-    IndexList cmdField, cmdPrior, cmdLoad, cmdLoadMany, cmdLoadEvents;
+    int solverNum = 0, mcNum = 0, trajNum = 0, outputNum = 0, dumpNum = 0;
+    int cmdSolver = 0, cmdMc = 0, cmdTraj = 0;
+    IndexList cmdField, cmdPrior, cmdLoad, cmdLoadMany, cmdLoadEvents, cmdTrajCost;
     for (int c = 0; c < cmdNum; c++) {
       String cmd(cmdList[c]->getCommand());
       //printf("COMMAND %s parameters %d options %d\n", cmd.cs(), cmdList[c]->getParamNum(), cmdList[c]->getOptionNum());
@@ -200,6 +201,14 @@ public:
 	cmdLoadEvents.add(c);
       } else if (cmd == "prior") {
 	cmdPrior.add(c);
+      } else if (cmd == "solver") {
+	solverNum++;
+	cmdSolver = c;
+      } else if (cmd == "trajCost") {
+	cmdTrajCost.add(c);
+      } else if (cmd == "mc") {
+	mcNum++;
+	cmdMc = c;
       } else if (cmd == "dump") {
 	// Handle dumping.
 	if (cmdList[c]->getParamNum() != 2) {
@@ -226,20 +235,16 @@ public:
 	  exit(-1);
 	}
 	dumpNum++;
-      } else if (cmd == "solver") {
-	solverNum++;
-	cmdSolver = c;
-      } else if (cmd == "trajCost") {
-	trajCostNum++;
-	cmdTrajCost = c;
-      } else if (cmd == "mc") {
-	mcNum++;
-	cmdMc = c;
       } else {
 	fprintf(stderr, "ERROR DiffusionFusion: Unrecognized command `%s'.\n", cmd.cs());
 	exit(-1);
       }
     }
+
+    // Count the commands that can be used multiple times.
+    fieldNum = cmdField.length();
+    priorNum = cmdPrior.length();
+    trajCostNum = cmdTrajCost.length();
 
     if ((outputNum==0 && outPreCmdLine.length()==0) || outputNum > 1) {
       fprintf(stderr, "ERROR DiffusionFusion: `%s' must have exactly one `output' command or -o must be set on the command line.\n", cmdFile.cs());
@@ -249,8 +254,8 @@ public:
       fprintf(stderr, "ERROR DiffusionFusion: `%s' does not have exactly one `trajectory' command.\n", cmdFile.cs());
       exit(-1);
     }
-    if (trajCostNum != 1) {
-      fprintf(stderr, "ERROR DiffusionFusion: `%s' does not have exactly one `trajCost' command.\n", cmdFile.cs());
+    if (trajCostNum < 1) {
+      fprintf(stderr, "ERROR DiffusionFusion: `%s' must have at least one `trajCost' command.\n", cmdFile.cs());
       exit(-1);
     }
     if (mcNum != 1) {
@@ -273,8 +278,6 @@ public:
     for (int d = 0; d < dumpTypeNum; d++)
       dumpFile[d] = insertOutputPrefix(dumpFile[d]);
 
-    fieldNum = cmdField.length();
-    priorNum = cmdPrior.length();
     printf("\nCOMMAND_COUNT\n");
     printf("  load %d\n", cmdLoad.length());
     printf("  loadMany %d\n", cmdLoadMany.length());
@@ -339,8 +342,11 @@ public:
 
     // Prepare what's left.
     if( solverNum > 0 ) prepareSolver(*cmdList[cmdSolver]);
-    prepareTrajCost(*cmdList[cmdTrajCost]);
     prepareMonteCarlo(*cmdList[cmdMc]);
+
+    // Prepare the trajectory cost computers.
+    for (int tc = 0; tc < trajCostNum; tc++)
+      prepareTrajCost(*cmdList[cmdTrajCost.get(tc)], tc);
 
     // Erase all data in the output trajectory file.
     initOutputTraj();
@@ -415,7 +421,10 @@ public:
     if (rando != NULL) delete rando;
     if (solver != NULL) delete solver;
     if (monte != NULL) delete monte;
-    if (trajCost != NULL) delete trajCost;
+    if (trajCostList != NULL) {
+      for (int tc = 0; tc < trajCostNum; tc++) delete trajCostList[tc];
+      delete[] trajCostList;
+    }
   }
 
   ///////////////////////////////////////////////////////////////////////
@@ -431,7 +440,9 @@ public:
     
     // Initial cost.
     //double lastCost = trajCost->calcCost();
-    double lastCost = trajCost->updateLocal();
+    double lastCost = 0.0;
+    for (int tc = 0; tc < trajCostNum; tc++)
+      lastCost += trajCostList[tc]->updateLocal();
     for (int p = 0; p < priorNum; p++)
       lastCost += priorList[p]->calcCost();
     printf("INITIAL_COST %.15g\n", lastCost);
@@ -462,7 +473,9 @@ public:
 	if (!fieldDesc[trialMove.fieldId].global) {
 	  // Trajectory cost.
 	  // Calculate the change only locally.
-	  double deltaCost = trajCost->deltaCost(trialMove);
+	  double deltaCost = 0.0;
+	  for (int tc = 0; tc < trajCostNum; tc++)
+	    deltaCost += trajCostList[tc]->deltaCost(trialMove);
 	  // Prior cost.
 #pragma omp parallel for schedule(dynamic) reduction(+:deltaCost)
 	  for (int p = 0; p < priorNum; p++)
@@ -477,13 +490,16 @@ public:
 	    // We reverse the move.
 	    monte->reject();
 	    // We also need to revert node cost in trajCost.
-	    trajCost->revert(trialMove);
+	    for (int tc = 0; tc < trajCostNum; tc++)
+	      trajCostList[tc]->revert(trialMove);
 	  }
 
 	} else {
 	  // We do things differently for global fields.
 	  // Everything is calculated explicitly.
-	  double currCost = trajCost->updateLocal();
+	  double currCost = 0.0;
+	  for (int tc = 0; tc < trajCostNum; tc++)
+	    currCost += trajCostList[tc]->updateLocal();
 #pragma omp parallel for schedule(dynamic) reduction(+:currCost)
 	  for (int p = 0; p < priorNum; p++)
 	    currCost += priorList[p]->calcCost();
@@ -498,7 +514,8 @@ public:
 	    // We reverse the move.
 	    monte->reject();
 	    // We also need to revert node cost in trajCost.
-	    trajCost->updateLocal();
+	    for (int tc = 0; tc < trajCostNum; tc++)
+	      trajCostList[tc]->updateLocal();
 	  }
 	}
 
@@ -552,11 +569,14 @@ public:
 	printf("  costStd %.15g\n", costStd);
 
 	// Trajectory cost.
-	double costTraj = trajCost->updateLocal();
-	printf("  costTraj %.15g\n", costTraj);
+	double costUpdate = 0.0;
+	for (int tc = 0; tc < trajCostNum; tc++) {
+	  double costTraj = trajCostList[tc]->updateLocal();
+	  costUpdate += costTraj;
+	  printf("  costTraj %d %.15g\n", tc, costTraj);
+	}
 
 	// Calculate the prior cost.
-	double costUpdate = costTraj;
 	for (int p = 0; p < priorNum; p++) {
 	  double costPrior = priorList[p]->calcCost();
 	  costUpdate += costPrior;
@@ -610,7 +630,7 @@ public:
 	  // Convert probability to pmf.
 	  if (fieldDesc[f].outLog) {
 	    snprintf(outFile, STRLEN,"%s.%d.pmf", outputPrefix.cs(), preview);
-	    fieldList[f]->writeLog(String(outFile), -trajCost->getKt());
+	    fieldList[f]->writeLog(String(outFile), -trajCostList[0]->getKt());
 	  }
 	}
 	
@@ -634,7 +654,7 @@ public:
 	// Convert probability to pmf.
 	if (fieldDesc[f].outLog) {
 	  snprintf(outFile, STRLEN,"%s.%s.pmf", dumpFile[dumpBest].cs(), fieldDesc[f].name.cs());
-	  fieldList[f]->writeLog(String(outFile), -trajCost->getKt());
+	  fieldList[f]->writeLog(String(outFile), -trajCostList[0]->getKt());
 	}
       }
     }
@@ -647,7 +667,7 @@ public:
       writeGtDistro(dumpFile[dumpDistro]);
     }
 
-    // Write the gt distribution for the best file.
+    // Write the event cost.
     if (dumpFile[dumpEventCost].length() > 0) {
       // Copy best field to the current field.
       for (int f = 0; f < fieldNum; f++) *fieldList[f] = *saveList[f];
@@ -1261,7 +1281,7 @@ private:
     }
   }
 
-  void prepareTrajCost(const CommandLineReader& cmdLine) {
+  void prepareTrajCost(const CommandLineReader& cmdLine, int tc) {
     if (cmdLine.getParamNum() < 2) {
       fprintf(stderr, "ERROR prepareTrajCost: Invalid trajCost command.\n");
       printUsage();
@@ -1292,6 +1312,7 @@ private:
     double kbt = 1.0;
     int leastLocal = -1;
     int subintervalSteps = 1;
+    int dim = -1;
     String* optCostVar = new String[cmdLine.getOptionNum()];
     IndexList optTrajVar;
 
@@ -1302,6 +1323,7 @@ private:
 
       if (opt == "kt") kbt = strtod(val, NULL);
       else if (opt == "steps") subintervalSteps = atoi(val);
+      else if (opt == "dim") dim = atoi(val);
       else if (opt == "leastLocal") {
 	// Find the field that correpsponds to the given name.
 	int f;
@@ -1334,55 +1356,59 @@ private:
 
     // Initialize the trajectory cost computer.
     if (type == "ccgPmf"  || type == "pmf") {
-      trajCost = new TrajComerPmf((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+      trajCostList[tc] = new TrajComerPmf((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg") {
-       trajCost = new TrajComer((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+       trajCostList[tc] = new TrajComer((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccgLog") {
-      trajCost = new TrajComerLog((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+      trajCostList[tc] = new TrajComerLog((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "langevin" || type == "bbkPmf") {
-      trajCost = new TrajLangevin((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+      trajCostList[tc] = new TrajLangevin((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "langevinGamma") {
-      trajCost = new TrajLangevinGamma((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+      trajCostList[tc] = new TrajLangevinGamma((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
      } else if (type == "turkcan") {
-      trajCost = new TrajTurkcan((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+      trajCostList[tc] = new TrajTurkcan((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
      } else if (type == "langevinExp") {
-      trajCost = new TrajLangevinExp((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+      trajCostList[tc] = new TrajLangevinExp((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
      } else if (type == "langevinExp2d") {
-      trajCost = new TrajLangevinExp2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+      trajCostList[tc] = new TrajLangevinExp2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg2d") {
-       trajCost = new TrajComer2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+      if (dim < 0) {
+	fprintf(stderr,"ERROR trajCost %s: You must define -dim\n", type.cs());
+	exit(-1);
+      }
+      trajCostList[tc] = new TrajComer2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, dim);
     } else if (type == "ccgPmf2d") {
-       trajCost = new TrajComerPmf2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+       trajCostList[tc] = new TrajComerPmf2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
        printf("Note that the PMF given by ccgPmf2d is defined only up to a constant function of the second dimension.\n");
     } else if (type == "ccg2d2d") {
-       trajCost = new TrajComer2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+       trajCostList[tc] = new TrajComer2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccgPmf2d2d") {
-       trajCost = new TrajComerPmf2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+       trajCostList[tc] = new TrajComerPmf2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg2d2d2d") {
-       trajCost = new TrajComer2d2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+       trajCostList[tc] = new TrajComer2d2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "smoluchowski") {
-      trajCost = new TrajBdSmoluchowski((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, solver, subintervalSteps);
-      if (subintervalSteps < 2) fprintf(stderr,"Warning: TrajBdSmoluchowski is meant to be used with subintervalSteps > 1. Unless you are doing testing, add '-steps' to the trajCost command.\n");
+      trajCostList[tc] = new TrajBdSmoluchowski((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, solver, subintervalSteps);
+      if (subintervalSteps < 2) fprintf(stderr,"Warning: TrajBdSmoluchowski is meant to be used with subintervalSteps > 1. Unless you are doing testing, add '-steps' to the trajCostList[tc] command.\n");
     } else if (type == "integral") {
-      trajCost = new TrajIntegral((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
+      trajCostList[tc] = new TrajIntegral((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
       if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegral is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
     } else if (type == "integralForce") {
-      trajCost = new TrajIntegralForce((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
+      trajCostList[tc] = new TrajIntegralForce((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
       if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegralForce is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
     } else if (type == "integralLog") {
-      trajCost = new TrajIntegralLog((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
+      trajCostList[tc] = new TrajIntegralLog((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
       if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegralLog is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
     } else if (type == "integralForceOrder") {
-      trajCost = new TrajIntegralForceOrder((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
+      trajCostList[tc] = new TrajIntegralForceOrder((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
       if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegralForceOrder is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
       //    } else if (type == "ccgCyl" || type == "cylinder") {
-      //trajCost = new TrajCylinder((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, trajVarNum);
+      //trajCostList[tc] = new TrajCylinder((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, trajVarNum);
     // } else if (type == "mobility") {
-    //   trajCost = new TrajMobility((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, trajVarNum);
+    //   trajCostList[tc] = new TrajMobility((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, trajVarNum);
     // } else if (type == "ccgCylX" || type == "cylinderx" || type == "ccgCylAx") {
-    //   trajCost = new TrajCylinderAxial((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, trajVarNum);
+    //   trajCostList[tc] = new TrajCylinderAxial((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, trajVarNum);
     // } else if (type == "ccgCylRad") {
-    //   trajCost = new TrajCylinderRadial((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, trajVarNum);
+    //   trajCostList[tc] = new TrajCylinderRadial((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, trajVarNum);
     } else {
       fprintf(stderr, "ERROR trajCost: Unrecognized type `%s'\n", type.cs());
       printUsage();
@@ -1390,24 +1416,24 @@ private:
     }
 
     // Initialize the trajectory variables.
-    trajCost->initCostVars(optCostVar, optTrajVar);
+    trajCostList[tc]->initCostVars(optCostVar, optTrajVar);
 
     printf("\nTRAJCOST %s\n", type.cs());
     for (int f = 0; f < tcFieldNum; f++) {
       int ifi = tcFieldSel.get(f);
-      printf("  field %d %s \"%s\"\n", ifi, trajCost->fieldName(f).cs(), fieldDesc[ifi].name.cs());
+      printf("  field %d %s \"%s\"\n", ifi, trajCostList[tc]->fieldName(f).cs(), fieldDesc[ifi].name.cs());
     }
-    for (int v = 0; v < trajCost->getTrajVarMin(); v++) {
-      int ev = trajCost->eventVarIndex(v);
-      printf("  var %d %s \"%s\"\n", v, trajCost->eventVarName(v).cs(), trajVarName[ev].cs());
+    for (int v = 0; v < trajCostList[tc]->getTrajVarMin(); v++) {
+      int ev = trajCostList[tc]->eventVarIndex(v);
+      printf("  var %d %s \"%s\"\n", v, trajCostList[tc]->eventVarName(v).cs(), trajVarName[ev].cs());
     }
 
-    printf("  kT %.15g\n", trajCost->getKt());
+    printf("  kT %.15g\n", trajCostList[tc]->getKt());
     printf("  leastLocalField %d \"%s\" \n", leastLocal, fieldDesc[leastLocal].name.cs());
     if (type == "integral") 
       printf("  blockLen %d\n", blockLen);
     printf("\n");
-    printf("INITIAL_TRAJCOST %.15g\n", trajCost->calcCost());
+    printf("INITIAL_TRAJCOST %d %.15g\n", tc, trajCostList[tc]->calcCost());
 
     delete[] optCostVar;
   }
@@ -2370,19 +2396,39 @@ public:
   }
 
   void writeGtDistro(const String& fileName) {
-    // Get the gt value for each event (or event block).
-    int n = trajCost->unitNum();
-    double* gt = new double[n];
-    for (int e = 0; e < n; e++) {
-      trajCost->eventCost(e);
-      gt[e] = trajCost->gtNumer/sqrt(trajCost->gtVar);
+    for (int tc = 0; tc < trajCostNum; tc++) {
+      // Get the gt value for each event (or event block).
+      int n = trajCostList[tc]->unitNum();
+      double* gt = new double[n];
+      for (int e = 0; e < n; e++) {
+	trajCostList[tc]->eventCost(e);
+	gt[e] = trajCostList[tc]->gtNumer/sqrt(trajCostList[tc]->gtVar);
+      }
+
+      // Create bins. Five sigma!
+      Bin normalBin(100, -5.0, 5.0);
+
+      if (trajCostNum == 1) {
+	writeHistogram(fileName.cs(), gt, n, normalBin);
+      } else {
+	// Specify which trajCostComputer with a number.
+	char exten[128];
+	snprintf(exten,128,".%d",tc);
+      
+	String fileName1;
+	int dot = fileName.last('.');
+	if (dot < 0) {
+	  fileName1 = fileName;
+	  fileName1.add(exten);
+	} else {
+	  fileName1 = fileName.range(0,dot-1);
+	  fileName1.add(exten);
+	  fileName1.add(fileName.range(dot,-1));
+	}
+      }
+
+      delete[] gt;
     }
-
-    // Create bins. Five sigma!
-    Bin normalBin(100, -5.0, 5.0);
-
-    writeHistogram(fileName.cs(), gt, n, normalBin);
-    delete[] gt;
   }
 
   bool writeEventCost(String fileName) {
@@ -2392,8 +2438,10 @@ public:
       fprintf(stderr,"Warning: Couldn't open file `%s' for writing.\n", fileName.cs());
       return false;
     }
-    for (int e = 0; e < trajCost->unitNum(); e++)
-      fprintf(out, "%.14g\n", trajCost->eventCost(e));
+    for (int tc = 0; tc < trajCostNum; tc++) {
+      for (int e = 0; e < trajCostList[tc]->unitNum(); e++)
+	fprintf(out, "%.14g\n", trajCostList[tc]->eventCost(e));
+    }
 
     fclose(out);
     return true;

@@ -303,6 +303,20 @@ public:
     return ret;
   }
 
+  int first(char findC) const {
+    for (int i = 0; i < len-1; i++) {
+      if (c[i] == findC) return i;
+    }
+    return -1;
+  }
+
+  int last(char findC) const {
+    for (int i = len-2; i >= 0; i--) {
+      if (c[i] == findC) return i;
+    }
+    return -1;
+  }
+
   ///////////////
   // Some useful string functions
   static bool isNumeral(char c) {
@@ -338,6 +352,7 @@ public:
     }
     return -1;
   }
+
 
 private:
   char* c;

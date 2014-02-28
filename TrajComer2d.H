@@ -11,26 +11,32 @@
 class TrajComer2d : public TrajCostComputer {
 private:
   const PiecewiseBicubic* diffuse;
-  const PiecewiseBicubic* forceX;
+  const PiecewiseBicubic* force;
   int T, X, Y, D, FB;
+  int dim;
 
 public:
-  TrajComer2d(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal) :
+  TrajComer2d(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, int dim0) :
     TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 5) {
 
     if (tcFieldNum != 2) {
-      fprintf(stderr, "ERROR trajCost ccg2d takes two fields: (0) diffusivity (1) forceX \n");
+      fprintf(stderr, "ERROR trajCost ccg2d takes two fields: (0) diffusivity (1) force \n");
+      exit(-1);
+    }
+
+    if (dim != 0 && dim != 1) {
+      fprintf(stderr, "ERROR trajCost ccg2d: dim must be 0 or 1 not %d\n", dim);
       exit(-1);
     }
 
     diffuse = dynamic_cast<const PiecewiseBicubic*>(fieldList[fieldSel.get(0)]);
     if (diffuse == NULL) {
-       fprintf(stderr,"ERROR trajCost comer2d requires field type bicubic.\n");
+       fprintf(stderr,"ERROR trajCost ccg2d requires field type bicubic.\n");
        exit(-1);
     }
-    forceX = dynamic_cast<const PiecewiseBicubic*>(fieldList[fieldSel.get(1)]);
-    if (forceX == NULL) {
-       fprintf(stderr,"ERROR trajCost comer2d requires field type bicubic.\n");
+    force = dynamic_cast<const PiecewiseBicubic*>(fieldList[fieldSel.get(1)]);
+    if (force == NULL) {
+       fprintf(stderr,"ERROR trajCost ccg2d requires field type bicubic.\n");
        exit(-1);
     }
 
@@ -76,7 +82,7 @@ public:
     case 0:
       return String("diffusivity");
     case 1:
-      return String("forceX");
+      return String("force");
     default:
       return String("UNKNOWN");
     }
@@ -98,10 +104,10 @@ public:
 
   double eventCost(int e) {
     // Sum of forceBias and forceSys.
-    double frc = event[e].var[FB] + forceX->computeVal(event[e].var[X], event[e].var[Y]);
+    double frc = event[e].var[FB] + force->computeVal(event[e].var[X], event[e].var[Y]);
     // The diffusivity and its gradient.
     double dif = diffuse->computeVal(event[e].var[X], event[e].var[Y]);
-    double gradDifX = diffuse->computeGradX(event[e].var[X], event[e].var[Y]);
+    double gradDifX = diffuse->computeGrad(dim, event[e].var[X], event[e].var[Y]);
 
     // Add the cost of this event.
     return ccgCost(event[e].del[T], event[e].del[D], frc, dif, gradDifX);

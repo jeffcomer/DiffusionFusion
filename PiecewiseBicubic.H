@@ -585,6 +585,16 @@ public:
     return a3*wy3 + a2*wy2 + a1*wy + a0;
   }
 
+  double computeGrad(int dir, double x, double y) const {
+    switch(dir) {
+    case 1:
+	return computeGradY(x,y);
+    case 0:
+    default:
+	return computeGradX(x,y);
+    }
+  }
+
   // Do the interpolation.
   double computeGradX(double x, double y) const {
     double g2[4][4];
