@@ -152,6 +152,7 @@ private:
   // The objects where the magic happens.
   int trajCostNum;
   TrajCostComputer** trajCostList;
+  bool** tcFieldOn;
 
   // Dump control
   static const int dumpTypeNum = 7;
@@ -345,8 +346,12 @@ public:
     prepareMonteCarlo(*cmdList[cmdMc]);
 
     // Prepare the trajectory cost computers.
-    for (int tc = 0; tc < trajCostNum; tc++)
+    trajCostList = new TrajCostComputer*[trajCostNum];
+    tcFieldOn = new bool*[trajCostNum];
+    for (int tc = 0; tc < trajCostNum; tc++) {
+      tcFieldOn[tc] = new bool[fieldNum];
       prepareTrajCost(*cmdList[cmdTrajCost.get(tc)], tc);
+    }
 
     // Erase all data in the output trajectory file.
     initOutputTraj();
@@ -372,7 +377,7 @@ public:
     fprintf(stdout, "\nprior scale|known|smooth field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension] [-start startingFieldIndex] [-end endingFieldIndex]\n");
     fprintf(stdout, "\nsolver type=bd [-bin binSize] [-min walksMin] [-max walksMax] [-hits hitsMin]\n");
     fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -tol relErrMax -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
-    fprintf(stdout, "\ntrajCost ccg|ccgPmf|ccg2d|ccgLog|integral|integralForce|IntegralLog|langevinExp|smolBd field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-steps subintervalSteps]\n");
+    fprintf(stdout, "\ntrajCost ccg|ccgPmf|ccg2d|ccgLog|integral|integralForce|IntegralLog|langevinExp|smolBd field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-steps subintervalSteps] [-dim primaryDimension]\n");
     fprintf(stdout, "\ndump events|fields|distro|best|eventCost dumpFile\n");
     fprintf(stdout, "\t*Note: A '%%' in dumpFile is substituted with 'output'.\n");
   }
@@ -422,8 +427,12 @@ public:
     if (solver != NULL) delete solver;
     if (monte != NULL) delete monte;
     if (trajCostList != NULL) {
-      for (int tc = 0; tc < trajCostNum; tc++) delete trajCostList[tc];
+      for (int tc = 0; tc < trajCostNum; tc++) {
+	delete trajCostList[tc];
+	delete[] tcFieldOn[tc];
+      }
       delete[] trajCostList;
+      delete[] tcFieldOn;
     }
   }
 
@@ -474,8 +483,11 @@ public:
 	  // Trajectory cost.
 	  // Calculate the change only locally.
 	  double deltaCost = 0.0;
-	  for (int tc = 0; tc < trajCostNum; tc++)
-	    deltaCost += trajCostList[tc]->deltaCost(trialMove);
+	  // We need not update trajCostComputers that don't depend the field.
+	  for (int tc = 0; tc < trajCostNum; tc++) {
+	    if (tcFieldOn[tc][trialMove.fieldId])
+	      deltaCost += trajCostList[tc]->deltaCost(trialMove);
+	  }
 	  // Prior cost.
 #pragma omp parallel for schedule(dynamic) reduction(+:deltaCost)
 	  for (int p = 0; p < priorNum; p++)
@@ -490,16 +502,20 @@ public:
 	    // We reverse the move.
 	    monte->reject();
 	    // We also need to revert node cost in trajCost.
-	    for (int tc = 0; tc < trajCostNum; tc++)
-	      trajCostList[tc]->revert(trialMove);
+	    for (int tc = 0; tc < trajCostNum; tc++) {
+	      if (tcFieldOn[tc][trialMove.fieldId])
+		trajCostList[tc]->revert(trialMove);
+	    }
 	  }
 
 	} else {
 	  // We do things differently for global fields.
 	  // Everything is calculated explicitly.
 	  double currCost = 0.0;
-	  for (int tc = 0; tc < trajCostNum; tc++)
-	    currCost += trajCostList[tc]->updateLocal();
+	  for (int tc = 0; tc < trajCostNum; tc++) {
+	    if (tcFieldOn[tc][trialMove.fieldId])
+	      currCost += trajCostList[tc]->updateLocal();
+	  }
 #pragma omp parallel for schedule(dynamic) reduction(+:currCost)
 	  for (int p = 0; p < priorNum; p++)
 	    currCost += priorList[p]->calcCost();
@@ -514,8 +530,10 @@ public:
 	    // We reverse the move.
 	    monte->reject();
 	    // We also need to revert node cost in trajCost.
-	    for (int tc = 0; tc < trajCostNum; tc++)
-	      trajCostList[tc]->updateLocal();
+	    for (int tc = 0; tc < trajCostNum; tc++) {
+	      if (tcFieldOn[tc][trialMove.fieldId])
+		trajCostList[tc]->updateLocal();
+	    }
 	  }
 	}
 
@@ -1292,6 +1310,7 @@ private:
     int tcFieldNum = cmdLine.getParamNum() - 1;
     IndexList tcFieldSel;
     
+    // Make a list of the relevant fields for this tc.
     for (int i = 0; i < tcFieldNum; i++) {
       String fieldName = cmdLine.getParam(i+1);
 
@@ -1312,7 +1331,7 @@ private:
     double kbt = 1.0;
     int leastLocal = -1;
     int subintervalSteps = 1;
-    int dim = -1;
+    int dimension = -1;
     String* optCostVar = new String[cmdLine.getOptionNum()];
     IndexList optTrajVar;
 
@@ -1323,7 +1342,7 @@ private:
 
       if (opt == "kt") kbt = strtod(val, NULL);
       else if (opt == "steps") subintervalSteps = atoi(val);
-      else if (opt == "dim") dim = atoi(val);
+      else if (opt == "dim") dimension = atoi(val);
       else if (opt == "leastLocal") {
 	// Find the field that correpsponds to the given name.
 	int f;
@@ -1372,11 +1391,11 @@ private:
      } else if (type == "langevinExp2d") {
       trajCostList[tc] = new TrajLangevinExp2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg2d") {
-      if (dim < 0) {
+      if (dimension < 0) {
 	fprintf(stderr,"ERROR trajCost %s: You must define -dim\n", type.cs());
 	exit(-1);
       }
-      trajCostList[tc] = new TrajComer2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, dim);
+      trajCostList[tc] = new TrajComer2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, dimension);
     } else if (type == "ccgPmf2d") {
        trajCostList[tc] = new TrajComerPmf2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
        printf("Note that the PMF given by ccgPmf2d is defined only up to a constant function of the second dimension.\n");
@@ -1429,10 +1448,19 @@ private:
     }
 
     printf("  kT %.15g\n", trajCostList[tc]->getKt());
+    if (dimension > 0) printf("  dimension %d\n", dimension);
     printf("  leastLocalField %d \"%s\" \n", leastLocal, fieldDesc[leastLocal].name.cs());
     if (type == "integral") 
       printf("  blockLen %d\n", blockLen);
     printf("\n");
+
+    // Fill the array to know which fields are relevant.
+    for (int f = 0; f < fieldNum; f++) {
+      if (tcFieldSel.find(f) <= 0) tcFieldOn[tc][f] = true;
+      else tcFieldOn[tc][f] = false;
+      printf("trajCost %d field %d %s", tc, f, tcFieldOn[tc][f]?"on":"off");
+    }
+
     printf("INITIAL_TRAJCOST %d %.15g\n", tc, trajCostList[tc]->calcCost());
 
     delete[] optCostVar;

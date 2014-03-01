@@ -13,10 +13,10 @@ private:
   const PiecewiseBicubic* diffuse;
   const PiecewiseBicubic* force;
   int T, X, Y, D, FB;
-  int dim;
+  int dimension;
 
 public:
-  TrajComer2d(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, int dim0) :
+  TrajComer2d(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, int dimension0) :
     TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 5) {
 
     if (tcFieldNum != 2) {
@@ -24,8 +24,8 @@ public:
       exit(-1);
     }
 
-    if (dim != 0 && dim != 1) {
-      fprintf(stderr, "ERROR trajCost ccg2d: dim must be 0 or 1 not %d\n", dim);
+    if (dimension != 0 && dimension != 1) {
+      fprintf(stderr, "ERROR trajCost ccg2d: dimension must be 0 or 1 not %d\n", dimension);
       exit(-1);
     }
 
@@ -107,10 +107,10 @@ public:
     double frc = event[e].var[FB] + force->computeVal(event[e].var[X], event[e].var[Y]);
     // The diffusivity and its gradient.
     double dif = diffuse->computeVal(event[e].var[X], event[e].var[Y]);
-    double gradDifX = diffuse->computeGrad(dim, event[e].var[X], event[e].var[Y]);
+    double gradDif = diffuse->computeGrad(dimension, event[e].var[X], event[e].var[Y]);
 
     // Add the cost of this event.
-    return ccgCost(event[e].del[T], event[e].del[D], frc, dif, gradDifX);
+    return ccgCost(event[e].del[T], event[e].del[D], frc, dif, gradDif);
   }
 };
 
