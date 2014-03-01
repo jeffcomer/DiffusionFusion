@@ -1407,12 +1407,11 @@ private:
       }
       trajCostList[tc] = new TrajComer2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, dimension);
     } else if (type == "reflect2d") {
-
       if (dimension < 0) {
 	fprintf(stderr,"ERROR trajCost %s: You must define -dim\n", type.cs());
 	exit(-1);
       }
-      trajCostList[tc] = new TrajComer2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, dimension);
+      trajCostList[tc] = new TrajReflect2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, dimension);
     } else if (type == "ccgPmf2d") {
        trajCostList[tc] = new TrajComerPmf2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
        printf("Note that the PMF given by ccgPmf2d is defined only up to a constant function of the second dimension.\n");
