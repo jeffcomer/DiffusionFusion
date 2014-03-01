@@ -315,6 +315,25 @@ public:
   int getNx() const { return nx; }
   int getNy() const { return ny; }
 
+  double getBound0(int dir) const {
+    switch(dir) {
+    case 1:
+      return x0;
+    case 0:
+    default:
+      return y0;
+    }
+  }
+  double getBound1(int dir) const {
+    switch(dir) {
+    case 1:
+      return x1;
+    case 0:
+    default:
+      return y1;
+    }
+  }
+
   // Things that must be implemented.
   bool set(int j, double v) {
     if (j < 0 || j >= n) return false;

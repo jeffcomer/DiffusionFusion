@@ -27,8 +27,9 @@
 // Various types of trajectory cost calculators, some experimental.
 #include "TrajComerPmf.H"
 #include "TrajComer2d.H"
+#include "TrajReflect.H"
+#include "TrajReflect2d.H"
 #include "TrajComerPmf2d.H"
-//#include "TrajComerPmfLinear.H"
 #include "TrajLangevin.H"
 #include "TrajLangevinExp.H"
 #include "TrajLangevinExp2d.H"
@@ -1384,6 +1385,8 @@ private:
       trajCostList[tc] = new TrajComerPmf((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg") {
        trajCostList[tc] = new TrajComer((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+    } else if (type == "reflect") {
+       trajCostList[tc] = new TrajReflect((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccgLog") {
       trajCostList[tc] = new TrajComerLog((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "langevin" || type == "bbkPmf") {
@@ -1397,6 +1400,13 @@ private:
      } else if (type == "langevinExp2d") {
       trajCostList[tc] = new TrajLangevinExp2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg2d") {
+
+      if (dimension < 0) {
+	fprintf(stderr,"ERROR trajCost %s: You must define -dim\n", type.cs());
+	exit(-1);
+      }
+      trajCostList[tc] = new TrajComer2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, dimension);
+    } else if (type == "reflect2d") {
 
       if (dimension < 0) {
 	fprintf(stderr,"ERROR trajCost %s: You must define -dim\n", type.cs());
