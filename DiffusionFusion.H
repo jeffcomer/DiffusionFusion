@@ -427,6 +427,7 @@ public:
     if (solver != NULL) delete solver;
     if (monte != NULL) delete monte;
     if (trajCostList != NULL) {
+
       for (int tc = 0; tc < trajCostNum; tc++) {
 	delete trajCostList[tc];
 	delete[] tcFieldOn[tc];
@@ -483,11 +484,13 @@ public:
 	  // Trajectory cost.
 	  // Calculate the change only locally.
 	  double deltaCost = 0.0;
+
 	  // We need not update trajCostComputers that don't depend the field.
 	  for (int tc = 0; tc < trajCostNum; tc++) {
 	    if (tcFieldOn[tc][trialMove.fieldId])
 	      deltaCost += trajCostList[tc]->deltaCost(trialMove);
 	  }
+
 	  // Prior cost.
 #pragma omp parallel for schedule(dynamic) reduction(+:deltaCost)
 	  for (int p = 0; p < priorNum; p++)
@@ -512,10 +515,12 @@ public:
 	  // We do things differently for global fields.
 	  // Everything is calculated explicitly.
 	  double currCost = 0.0;
+
 	  for (int tc = 0; tc < trajCostNum; tc++) {
 	    if (tcFieldOn[tc][trialMove.fieldId])
 	      currCost += trajCostList[tc]->updateLocal();
 	  }
+
 #pragma omp parallel for schedule(dynamic) reduction(+:currCost)
 	  for (int p = 0; p < priorNum; p++)
 	    currCost += priorList[p]->calcCost();
@@ -530,6 +535,7 @@ public:
 	    // We reverse the move.
 	    monte->reject();
 	    // We also need to revert node cost in trajCost.
+
 	    for (int tc = 0; tc < trajCostNum; tc++) {
 	      if (tcFieldOn[tc][trialMove.fieldId])
 		trajCostList[tc]->updateLocal();
@@ -1391,6 +1397,7 @@ private:
      } else if (type == "langevinExp2d") {
       trajCostList[tc] = new TrajLangevinExp2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg2d") {
+
       if (dimension < 0) {
 	fprintf(stderr,"ERROR trajCost %s: You must define -dim\n", type.cs());
 	exit(-1);
@@ -1449,6 +1456,7 @@ private:
 
     printf("  kT %.15g\n", trajCostList[tc]->getKt());
     if (dimension > 0) printf("  dimension %d\n", dimension);
+
     printf("  leastLocalField %d \"%s\" \n", leastLocal, fieldDesc[leastLocal].name.cs());
     if (type == "integral") 
       printf("  blockLen %d\n", blockLen);
