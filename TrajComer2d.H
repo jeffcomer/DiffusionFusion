@@ -17,7 +17,7 @@ private:
 
 public:
   TrajComer2d(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, int dimension0) :
-    TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 5) {
+    TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 5), dimension(dimension0) {
 
     if (tcFieldNum != 2) {
       fprintf(stderr, "ERROR trajCost ccg2d takes two fields: (0) diffusivity (1) force \n");

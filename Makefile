@@ -6,7 +6,7 @@ gnu:
 	g++ -Ofast -Wall -march=native -ffast-math -ffp-contract=fast -mfpmath=sse $(ROOT).C -o $(ROOT) -lm -lgsl -lgslcblas -fopenmp
 
 linux:
-	g++ -O3 -Wall -mfpmath=sse -DHAVE_INLINE $(ROOT).C -o $(ROOT)_LINUX -lm -lgsl -lgslcblas -fopenmp
+	g++ -O3 -Wall -ffast-math -mfpmath=sse -DHAVE_INLINE $(ROOT).C -o $(ROOT)_LINUX -lm -lgsl -lgslcblas -fopenmp
 
 linuxdebug:
 	g++ -ggdb -DFUSION_DEBUG  -Wall -DHAVE_INLINE $(ROOT).C -o $(ROOT)_LINUX -lm -lgsl -lgslcblas -fopenmp
