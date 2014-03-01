@@ -1464,9 +1464,9 @@ private:
 
     // Fill the array to know which fields are relevant.
     for (int f = 0; f < fieldNum; f++) {
-      if (tcFieldSel.find(f) <= 0) tcFieldOn[tc][f] = true;
+      if (tcFieldSel.find(f) >= 0) tcFieldOn[tc][f] = true;
       else tcFieldOn[tc][f] = false;
-      printf("trajCost %d field %d %s", tc, f, tcFieldOn[tc][f]?"on":"off");
+      printf("trajCost %d field %d %s\n", tc, f, tcFieldOn[tc][f]?"on":"off");
     }
 
     printf("INITIAL_TRAJCOST %d %.15g\n", tc, trajCostList[tc]->calcCost());

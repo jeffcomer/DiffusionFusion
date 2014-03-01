@@ -3,7 +3,7 @@ ROOT=diffusionFusion
 default: gnu
 
 gnu:
-	g++ -O3 -Wall -march=native -mfpmath=sse -DHAVE_INLINE $(ROOT).C -o $(ROOT) -lm -lgsl -lgslcblas -fopenmp
+	g++ -Ofast -Wall -march=native -ffast-math -ffp-contract=fast -mfpmath=sse $(ROOT).C -o $(ROOT) -lm -lgsl -lgslcblas -fopenmp
 
 linux:
 	g++ -O3 -Wall -mfpmath=sse -DHAVE_INLINE $(ROOT).C -o $(ROOT)_LINUX -lm -lgsl -lgslcblas -fopenmp
@@ -24,7 +24,7 @@ clean:
 	rm $(ROOT)
 
 mac:
-	g++ -I/opt/local/include -L/opt/local/lib -O2 -Wall -DHAVE_INLINE $(ROOT).C -o $(ROOT) -lm -lgsl -lgslcblas -fopenmp
+	g++ -I/opt/local/include -L/opt/local/lib -Ofast -Wall -DHAVE_INLINE $(ROOT).C -o $(ROOT) -lm -lgsl -lgslcblas -fopenmp
 
 macfast:
 	g++ -I/opt/local/include -L/opt/local/lib -O0 -Wall $(ROOT).C -o $(ROOT) -lm -lgsl -lgslcblas -fopenmp
