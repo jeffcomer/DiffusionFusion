@@ -18,21 +18,21 @@ inline double ccgCost(double dt, double dx, double frc, double dif, double gradD
 }
 
 int main(int argc, char* argv[]) {
-  if (argc != 6) {
+  if (argc != 7) {
     printf("Usage: %s dt dx frc dif gradDif kT\n", argv[0]);
     exit(0);
   }
   
-  double dt = strtod(argv[0],NULL);
-  double dx = strtod(argv[1],NULL);
-  double frc = strtod(argv[2],NULL);
-  double dif = strtod(argv[3],NULL);
-  double gradDif = strtod(argv[4],NULL);
-  double beta = 1.0/strtod(argv[5],NULL);
+  double dt = strtod(argv[1],NULL);
+  double dx = strtod(argv[2],NULL);
+  double frc = strtod(argv[3],NULL);
+  double dif = strtod(argv[4],NULL);
+  double gradDif = strtod(argv[5],NULL);
+  double beta = 1.0/strtod(argv[6],NULL);
  
   double cost = ccgCost(dt, dx, frc, dif, gradDif, beta);
 
-  printf("cost %.10g\n", cost);
+  printf("%.10g\n", cost);
   
   return 0;
 }

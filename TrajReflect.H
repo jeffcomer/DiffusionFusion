@@ -65,10 +65,10 @@ public:
     case 0:
       return String("time");
     case 1:
-      return String("posX");
-    case 3:
+      return String("pos");
+    case 2:
       return String("displacement");
-    case 4:
+    case 3:
       return String("forceBias");
     default:
       return String("UNKNOWN");
@@ -86,10 +86,9 @@ public:
     }
   }
 
- // The heart of the method: Eq 2 of Comer , Chipot, Gonzalez.
   double reflectCost(double dt, double dx, double frc, double dif, double gradDif, double x0, double xa, double xb) {
     // Store the data that can be used to reconstruct gt.
-    double mu = beta*dif*frc*dt + gradDif*dt;
+    double mu = (beta*dif*frc + gradDif)*dt;
     double var = 2.0*dif*dt;
     double alpha = 0.5/var;
     
@@ -110,6 +109,55 @@ public:
     return 0.5*log(2.0*M_PI*var) - log(sum);
   }
 
+  static void insertionSort(double* a, int len) {
+    int i, j;
+    double tmp;
+    for (i = 1; i < len; i++) {
+      j = i;
+      while (j > 0 && a[j-1] > a[j]) {
+	tmp = a[j];
+	a[j] = a[j-1];
+	a[j-1] = tmp;
+	j--;
+      }
+    }
+  }
+   
+
+  // Hopefully more numerically stable.
+  double reflectCost1(double dt, double dx, double frc, double dif, double gradDif, double x0, double xa, double xb) {
+    // Store the data that can be used to reconstruct gt.
+    double mu = (beta*dif*frc + gradDif)*dt;
+    double var = 2.0*dif*dt;
+    double alpha = 0.5/var;
+    
+    double x1 = x0 + dx;
+    double gtNumer0 = dx - mu;
+    // The images move in the direction opposite the primary Gaussian.
+    double plus =  x1 + x0 + mu;
+    double numer1 = plus - 2.0*xa;
+    double numer2 = plus - 2.0*xb;
+
+    // Sort the exponents.
+    double arg[3];
+    arg[0] = alpha*gtNumer0*gtNumer0;
+    arg[1] = alpha*numer1*numer1;
+    arg[2] = alpha*numer2*numer2;
+    insertionSort(arg, 3);
+   
+    // Now we should be able to handle this to avoid floating-point overflows or underflows.
+    // arg0 is the smallest, so it dominates the probability.
+    // The right term is log(1 + something_<=_one + something_<=_one).
+    double cost = arg[0] - log(1.0 + exp(arg[0]-arg[1]) + exp(arg[0]-arg[2]));
+
+    // Avoid race conditions.
+    gtNumer = gtNumer0;
+    gtVar = var;
+
+    return 0.5*log(2.0*M_PI*var) + cost;
+  }
+
+
   double eventCost(int e) {
     // Sum of forceBias and forceSys.
     double frc = event[e].var[FB] + force->computeVal(event[e].var[X]);
@@ -118,7 +166,7 @@ public:
     double gradDif = diffuse->computeGrad(event[e].var[X]);
 
     // Add the cost of this event.
-    return reflectCost(event[e].del[T], event[e].del[D], frc, dif, gradDif, event[e].var[D], bound0, bound1);
+    return reflectCost1(event[e].del[T], event[e].del[D], frc, dif, gradDif, event[e].var[D], bound0, bound1);
   }
 };
 

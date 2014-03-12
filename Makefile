@@ -1,12 +1,13 @@
 ROOT=diffusionFusion
+# DON'T USE -ffast-math, it seems to keep things from converging
 
 default: gnu
 
 gnu:
-	g++ -Ofast -Wall -march=native -ffast-math -ffp-contract=fast -mfpmath=sse $(ROOT).C -o $(ROOT) -lm -lgsl -lgslcblas -fopenmp
+	g++ -O3 -Wall -march=native -mfpmath=sse $(ROOT).C -o $(ROOT) -lm -lgsl -lgslcblas -fopenmp
 
 linux:
-	g++ -O3 -Wall -ffast-math -mfpmath=sse -DHAVE_INLINE $(ROOT).C -o $(ROOT)_LINUX -lm -lgsl -lgslcblas -fopenmp
+	g++ -O3 -Wall -mfpmath=sse -DHAVE_INLINE $(ROOT).C -o $(ROOT)_LINUX -lm -lgsl -lgslcblas -fopenmp
 
 linuxdebug:
 	g++ -ggdb -DFUSION_DEBUG  -Wall -DHAVE_INLINE $(ROOT).C -o $(ROOT)_LINUX -lm -lgsl -lgslcblas -fopenmp
@@ -24,9 +25,9 @@ clean:
 	rm $(ROOT)
 
 mac:
-	g++ -I/opt/local/include -L/opt/local/lib -Ofast -Wall -DHAVE_INLINE $(ROOT).C -o $(ROOT) -lm -lgsl -lgslcblas -fopenmp
+	g++ -I/opt/local/include -L/opt/local/lib -O3 -Wall -DHAVE_INLINE $(ROOT).C -o $(ROOT) -lm -lgsl -lgslcblas -fopenmp
 
-macfast:
+macquick:
 	g++ -I/opt/local/include -L/opt/local/lib -O0 -Wall $(ROOT).C -o $(ROOT) -lm -lgsl -lgslcblas -fopenmp
 
 mac_debug:
@@ -49,3 +50,7 @@ ccgCost:
 	g++ -O2 -Wall ccgCost.C -o ccgCost
 gnuplot:
 	g++ -O2 -Wall dxToGnuplot2d.C -o dxToGnuplot2d
+brown:
+	g++ -I/opt/local/include -L/opt/local/lib -O3 -Wall -DHAVE_INLINE brownTown2d.C -o brownTown2d -lm -lgsl -lgslcblas
+passage:
+	g++ -I/opt/local/include -L/opt/local/lib -O3 -Wall -DHAVE_INLINE brownTown2dPassage.C -o brownTown2dPassage -lm -lgsl -lgslcblas
