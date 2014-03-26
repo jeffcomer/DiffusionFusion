@@ -2043,8 +2043,8 @@ private:
       // Check for the right number of columns.
       int tokN = s.tokenCount();
       if (tokN <= maxColumn) {
-	fprintf(stderr, "ERROR line %d of file `%s' has too few columns (%d of %d).\n", ln, traj.fileName.cs(), tokN, maxColumn);
-	exit(-1);
+	fprintf(stderr, "Warning: line %d of file `%s' has too few columns (%d of %d).\n", ln, traj.fileName.cs(), tokN, maxColumn);
+	continue;
       }
       
       // blockCounter is the count of valid strided entries.
