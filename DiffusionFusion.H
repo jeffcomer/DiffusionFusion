@@ -25,16 +25,18 @@
 #include "TrajCostComputer.H"
 
 // Various types of trajectory cost calculators, some experimental.
+#include "TrajComer.H"
 #include "TrajComerPmf.H"
 #include "TrajComer2d.H"
 #include "TrajReflect.H"
 #include "TrajReflect2d.H"
+// Mostly experimental
+#include "TrajFractional.H"
 #include "TrajComerPmf2d.H"
 #include "TrajLangevin.H"
 #include "TrajLangevinExp.H"
 #include "TrajLangevinExp2d.H"
 #include "TrajLangevinGamma.H"
-#include "TrajComer.H"
 #include "TrajComerLog.H"
 #include "TrajTurkcan.H"
 #include "TrajIntegral.H"
@@ -378,7 +380,7 @@ public:
     fprintf(stdout, "\nprior scale|known|smooth field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension] [-start startingFieldIndex] [-end endingFieldIndex]\n");
     fprintf(stdout, "\nsolver type=bd [-bin binSize] [-min walksMin] [-max walksMax] [-hits hitsMin]\n");
     fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -tol relErrMax -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
-    fprintf(stdout, "\ntrajCost ccg|ccgPmf|ccg2d|ccgLog|integral|integralForce|IntegralLog|langevinExp|smolBd field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-steps subintervalSteps] [-dim primaryDimension]\n");
+    fprintf(stdout, "\ntrajCost ccg|ccgPmf|fractional|ccg2d|reflect|reflect2d|langevinExp|smoluchowski field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-steps subintervalSteps] [-dim primaryDimension]\n");
     fprintf(stdout, "\ndump events|fields|distro|best|eventCost dumpFile\n");
     fprintf(stdout, "\t*Note: A '%%' in dumpFile is substituted with 'output'.\n");
   }
@@ -1387,6 +1389,8 @@ private:
        trajCostList[tc] = new TrajComer((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "reflect") {
        trajCostList[tc] = new TrajReflect((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+    } else if (type == "fractional") {
+       trajCostList[tc] = new TrajFractional((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccgLog") {
       trajCostList[tc] = new TrajComerLog((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "langevin" || type == "bbkPmf") {
@@ -1400,7 +1404,6 @@ private:
      } else if (type == "langevinExp2d") {
       trajCostList[tc] = new TrajLangevinExp2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg2d") {
-
       if (dimension < 0) {
 	fprintf(stderr,"ERROR trajCost %s: You must define -dim\n", type.cs());
 	exit(-1);

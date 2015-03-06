@@ -54,3 +54,6 @@ brown:
 	g++ -I/opt/local/include -L/opt/local/lib -O3 -Wall -DHAVE_INLINE brownTown2d.C -o brownTown2d -lm -lgsl -lgslcblas
 passage:
 	g++ -I/opt/local/include -L/opt/local/lib -O3 -Wall -DHAVE_INLINE brownTown2dPassage.C -o brownTown2dPassage -lm -lgsl -lgslcblas
+
+fox:
+	g++ -I/opt/local/include -L/opt/local/lib -O3 -Wall -DHAVE_INLINE testFox.C -o testFox -lm -lgsl -lgslcblas
