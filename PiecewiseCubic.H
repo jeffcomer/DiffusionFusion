@@ -98,7 +98,6 @@ public:
     delete[] v3;
   }
 
-
   PiecewiseCubic& operator=(const PiecewiseCubic& tab) {
     // Resize the arrays if necessary.
     if (n != tab.n) {
@@ -133,6 +132,11 @@ public:
     return (*this);
   }
 
+  // Get the gradient value.
+  double getGrad(int j) const {
+    if (j < 0 || j >= n) return 0.0;
+    return v1[j]/dr;
+  }
 
   // We can scale without recalculating the whole interpolant.
   // This should be slightly faster than reinterpolation.

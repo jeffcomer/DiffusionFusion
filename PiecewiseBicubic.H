@@ -349,10 +349,10 @@ public:
     
     if (periodic) {
       for (int ix = -2; ix <= 1; ix++) {
-	int kx = wrap(jx+ix, nx);
+	int kx = wrapInt(jx+ix, nx);
 
 	for (int iy = -2; iy <= 1; iy++) {
-	  int ky = wrap(jy+iy, ny);
+	  int ky = wrapInt(jy+iy, ny);
 	  ret.add(ky + kx*ny);
 	}
       } 
@@ -381,10 +381,10 @@ public:
     
     if (periodic) {
       for (int ix = -2; ix <= 2; ix++) {
-	int kx = wrap(jx+ix, nx);
+	int kx = wrapInt(jx+ix, nx);
 
 	for (int iy = -2; iy <= 2; iy++) {
-	  int ky = wrap(jy+iy, ny);
+	  int ky = wrapInt(jy+iy, ny);
 	  ret.add(ky + kx*ny);
 	}
       } 
@@ -408,24 +408,24 @@ public:
 
 
   int nearestNode(const double* pos) const {
-    int ix = wrap(int(floor((pos[0]-x0)/dx+0.5)), nx);
-    int iy = wrap(int(floor((pos[1]-y0)/dy+0.5)), ny);
+    int ix = wrapInt(int(floor((pos[0]-x0)/dx+0.5)), nx);
+    int iy = wrapInt(int(floor((pos[1]-y0)/dy+0.5)), ny);
     return index(ix,iy);
   }
   // The nearest node with all coordinates less than those of pos.
   int getNode(const double* pos) const {
-    int ix = wrap(int(floor((pos[0]-x0)/dx)), nx);
-    int iy = wrap(int(floor((pos[1]-y0)/dy)), ny);
+    int ix = wrapInt(int(floor((pos[0]-x0)/dx)), nx);
+    int iy = wrapInt(int(floor((pos[1]-y0)/dy)), ny);
     return index(ix,iy);
   }
   inline int getNode(double x, double y) const {
-    int ix = wrap(int(floor((x-x0)/dx)), nx);
-    int iy = wrap(int(floor((y-y0)/dy)), ny);
+    int ix = wrapInt(int(floor((x-x0)/dx)), nx);
+    int iy = wrapInt(int(floor((y-y0)/dy)), ny);
     return index(ix,iy);
   }
   inline int getNodePos(double x, double y, double& hx, double& hy) const {
-    int ix = wrap(int(floor((x-x0)/dx)), nx);
-    int iy = wrap(int(floor((y-y0)/dy)), ny);
+    int ix = wrapInt(int(floor((x-x0)/dx)), nx);
+    int iy = wrapInt(int(floor((y-y0)/dy)), ny);
     // The position of the home node.
     hx = getPosX(ix);
     hy = getPosY(iy);
@@ -458,7 +458,7 @@ public:
       return -1;
     }
 
-    if (periodic) return index(wrap(ix0,nx),wrap(iy0,ny));
+    if (periodic) return index(wrapInt(ix0,nx),wrapInt(iy0,ny));
     else {
       if (ix0 < 0) return -1;
       if (iy0 < 0) return -1;
@@ -486,7 +486,7 @@ public:
       return -1;
     }
 
-    if (periodic) return index(wrap(ix1,nx),wrap(iy1,ny));
+    if (periodic) return index(wrapInt(ix1,nx),wrapInt(iy1,ny));
     else {
       if (ix1 >= nx) return -1;
       if (iy1 >= ny) return -1;
@@ -695,9 +695,9 @@ private:
 
     // Get the values at the neighbors.
     for (int ix = 0; ix < 4; ix++) {
-      int jx = wrap(ix + indX - 1, nx);
+      int jx = wrapInt(ix + indX - 1, nx);
       for (int iy = 0; iy < 4; iy++) {
-	int jy = wrap(iy + indY - 1, ny);
+	int jy = wrapInt(iy + indY - 1, ny);
 	val[ix][iy] = v0[index(jx,jy)];
       }
     }

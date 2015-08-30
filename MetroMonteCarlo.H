@@ -90,8 +90,14 @@ public:
       const FieldDesc* fd = mcFieldDesc[trialField];
       
       // Pick the field node randomly.
-      trialNode = int(rando->uniform()*mcField[trialField]->length());
-      if (fd->hasFixed && trialNode == fd->fixedNode) continue;
+      if (fd->fixedFile.length() == 0)
+	// All nodes are free.
+	trialNode = int(rando->uniform()*mcField[trialField]->length());
+      else {
+	// Free nodes are specified in freeNodeList.
+	int trialInd = int(rando->uniform()*fd->freeNodeList.length());
+	trialNode = fd->freeNodeList.get(trialInd);
+      }
       
       // Choose the move.
       jump = fd->step*rando->student(1.0);

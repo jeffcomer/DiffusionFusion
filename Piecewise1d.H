@@ -167,6 +167,7 @@ public:
     return true;
   }
 
+  virtual double getGrad(int j) const = 0;
   virtual double computeVal(double d) const = 0;
   virtual double computeGrad(double d) const = 0;
 
@@ -337,8 +338,7 @@ public:
     int near;
 
     if (periodic) {
-      near = int(floor((wrap(d) - r0)/dr + 0.5));
-      if (near >= n) near= 0;
+      near = wrapNode(int(floor((d - r0)/dr + 0.5)));
     } else {
       near = int(floor((d - r0)/dr + 0.5));
       if (near < 0) near = 0;

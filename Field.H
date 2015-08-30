@@ -79,6 +79,10 @@ public:
     if (j < 0 || j >= n) return 0.0;
     return v0[j];
   }
+  double operator[](int j) const {
+    if (j < 0 || j >= n) return 0.0;
+    return v0[j];
+  }
 
   // Just dump the numeric data.
   void dump(FILE* out) const {
@@ -115,7 +119,7 @@ public:
   }
   
   // Basic wrapping if periodic.
-  inline int wrap(int i, int ni) const {
+  inline int wrapInt(int i, int ni) const {
     if (periodic) {
       int r = i % ni;
       return r<0 ? r+ni : r;

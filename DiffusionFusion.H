@@ -5,6 +5,7 @@
 
 #include <ctime>
 #include <omp.h>
+#include <limits>
 
 #include "useful.H"
 #include "CommandLineReader.H"
@@ -19,8 +20,6 @@
 #include "HistoryReader.H"
 #include "Prior.H"
 #include "RandomGsl.H"
-#include "BdSmoluchowskiSolver.H"
-#include "BenesiSmolSolver.H"
 #include "MetroMonteCarlo.H"
 #include "TrajCostComputer.H"
 
@@ -46,7 +45,10 @@
 #include "TrajComer2d2d.H"
 #include "TrajComerPmf2d2d.H"
 #include "TrajComer2d2d2d.H"
-#include "TrajBdSmoluchowski.H"
+#include "TrajFdSmoluchowski.H"
+#include "TrajSimpleSmol.H"
+#include "TrajBallChain.H"
+#include "TrajNoise.H"
 //#include "TrajMobility.H"
 //#include "TrajCylinder.H"
 //#include "TrajCylinderAxial.H"
@@ -144,9 +146,6 @@ private:
   // The pseudorandom number generator
   Random* rando;
 
-  // Smoluchowski equation solver object
-  SmoluchowskiSolver* solver;
-
   // Monte Carlo object
   MetroMonteCarlo* monte;
   IndexList mcFieldSel;
@@ -169,7 +168,7 @@ private:
   String dumpFile[dumpTypeNum];
 
 public:
-  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), dispFileMax(30), biasHistoryList(NULL), totalTrajFileNum(0), biasFieldNum(0), biasFieldList(NULL), blockNum(0), blockInd(0), eventMax(1), eventNum(0), event(NULL), fieldNum(0), fieldList(NULL), priorNum(0), priorList(NULL), rando(NULL), solver(NULL), monte(NULL), mcCycles(0), trajCostList(NULL) {
+  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), dispFileMax(30), biasHistoryList(NULL), totalTrajFileNum(0), biasFieldNum(0), biasFieldList(NULL), blockNum(0), blockInd(0), eventMax(1), eventNum(0), event(NULL), fieldNum(0), fieldList(NULL), priorNum(0), priorList(NULL), rando(NULL), monte(NULL), mcCycles(0), trajCostList(NULL) {
     // Read the configuration file.
     cmdNum = countLines(cmdFile.cs(), IndexList(0));
     cmdList = new CommandLineReader*[cmdNum];
@@ -178,8 +177,8 @@ public:
     printf("Read %d commands from `%s'.\n", cmdNum, cmdFile.cs());
 
     printf("Organizing commands.\n");
-    int solverNum = 0, mcNum = 0, trajNum = 0, outputNum = 0, dumpNum = 0;
-    int cmdSolver = 0, cmdMc = 0, cmdTraj = 0;
+    int mcNum = 0, trajNum = 0, outputNum = 0, dumpNum = 0;
+    int cmdMc = 0, cmdTraj = 0;
     IndexList cmdField, cmdPrior, cmdLoad, cmdLoadMany, cmdLoadEvents, cmdTrajCost;
     for (int c = 0; c < cmdNum; c++) {
       String cmd(cmdList[c]->getCommand());
@@ -205,9 +204,6 @@ public:
 	cmdLoadEvents.add(c);
       } else if (cmd == "prior") {
 	cmdPrior.add(c);
-      } else if (cmd == "solver") {
-	solverNum++;
-	cmdSolver = c;
       } else if (cmd == "trajCost") {
 	cmdTrajCost.add(c);
       } else if (cmd == "mc") {
@@ -266,10 +262,6 @@ public:
       fprintf(stderr, "ERROR DiffusionFusion: `%s' does not have exactly one `mc' command.\n", cmdFile.cs());
       exit(-1);
     }
-    if (solverNum > 1) {
-      fprintf(stderr, "ERROR DiffusionFusion: `%s' may have no more than one `solver' command.\n", cmdFile.cs());
-      exit(-1);
-    }
 
     // Command line 'outputPrefix'
     if ( outPreCmdLine.length() > 0 ) {
@@ -288,7 +280,6 @@ public:
     printf("  loadEvents %d\n", cmdLoadEvents.length());
     printf("  field %d\n", fieldNum);
     printf("  prior %d\n", priorNum);
-    printf("  solver %d\n", solverNum);
     printf("  mc %d\n", mcNum);
     printf("  trajCost %d\n", trajCostNum);
     printf("  dump %d\n", dumpNum);
@@ -345,7 +336,6 @@ public:
     rando = new Random();
 
     // Prepare what's left.
-    if( solverNum > 0 ) prepareSolver(*cmdList[cmdSolver]);
     prepareMonteCarlo(*cmdList[cmdMc]);
 
     // Prepare the trajectory cost computers.
@@ -374,13 +364,12 @@ public:
     fprintf(stdout, "\t*Note: Using -bias with loadMany probably doesn't make sense -- all files will use the same bias history. No warning will be issued.\n");
     fprintf(stdout, "\nloadEvent [-skip eventSkip] [-offset remainder] eventFile\n");
     fprintf(stdout, "\t*Note: Assumed to already be correctly filtered.\n");
-    fprintf(stdout, "\nfield fieldName fieldType -step mcStep [-f initialFileName] [-periodic true|false] [-n numEntries] [-init initialValue] [-minVal val] [-maxVal val] [-var colName] [-err errorFile] [-outPmf force|prob] [-global true|false]\n");
+    fprintf(stdout, "\nfield fieldName fieldType -step mcStep [-f initialFileName] [-periodic true|false] [-n numEntries] [-fixed fixedNodeFile] [-init initialValue] [-minVal val] [-maxVal val] [-var colName] [-err errorFile] [-outPmf force|prob] [-global true|false]\n");
     fprintf(stdout, "\t*Note: -outPmf force|prob allows you to write the negative integral\n\t\tor -kT log(prob), respectively, in addition writing the\n\t\tfield in the normal way.\n");
     fprintf(stdout, "\t*Note: -global permits parameters that affect all nodes.\n");
     fprintf(stdout, "\nprior scale|known|smooth field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension] [-start startingFieldIndex] [-end endingFieldIndex]\n");
-    fprintf(stdout, "\nsolver type=bd [-bin binSize] [-min walksMin] [-max walksMax] [-hits hitsMin]\n");
     fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -tol relErrMax -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
-    fprintf(stdout, "\ntrajCost ccg|ccgPmf|fractional|ccg2d|reflect|reflect2d|langevinExp|smoluchowski field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-steps subintervalSteps] [-dim primaryDimension]\n");
+    fprintf(stdout, "\ntrajCost ccg|ccgPmf|ballchain|ccg2d|reflect|reflect2d|langevinExp|smoluchowski|simpleSmol field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-timestep timestep] [-hop maxHop] [-dim primaryDimension]\n");
     fprintf(stdout, "\ndump events|fields|distro|best|eventCost dumpFile\n");
     fprintf(stdout, "\t*Note: A '%%' in dumpFile is substituted with 'output'.\n");
   }
@@ -427,7 +416,6 @@ public:
     }
 
     if (rando != NULL) delete rando;
-    if (solver != NULL) delete solver;
     if (monte != NULL) delete monte;
     if (trajCostList != NULL) {
 
@@ -500,7 +488,7 @@ public:
 	    deltaCost += priorList[p]->deltaCost(trialMove);
 
 	  // Metropolis accept or reject.
-	  if (!(deltaCost != deltaCost) && monte->metropolis(deltaCost)) {
+	  if (!(deltaCost != deltaCost) && deltaCost <= std::numeric_limits<double>::max() && monte->metropolis(deltaCost)) {
 	    // Accept
 	    lastCost += deltaCost;
 	    fieldAccept[trialMove.fieldId]++;
@@ -1171,7 +1159,6 @@ private:
     fieldDesc[f].type = cmdLine.getParam(1);
     fieldDesc[f].hasMin = false;
     fieldDesc[f].hasMax = false;
-    fieldDesc[f].hasFixed = false;
     fieldDesc[f].step = -1.0;
     //fieldDesc[f].file; // empty string
     fieldDesc[f].n = 20; // default value
@@ -1204,8 +1191,7 @@ private:
 	fieldDesc[f].hasMax = true;
 	fieldDesc[f].maxVal = strtod(val, NULL);
       } else if (opt=="fixed") {
-	fieldDesc[f].hasFixed = true;
-	fieldDesc[f].fixedNode = atoi(val);
+	fieldDesc[f].fixedFile = val;
       } else if (opt=="err") {
 	fieldDesc[f].errFile = val;
       } else if (opt=="var") {
@@ -1306,6 +1292,25 @@ private:
       }
       for (int i = 0; i < n; i++) fieldList[f]->setErr(i, errField.get(i));
     }
+
+    // Determine which nodes are fixed.
+    if (fieldDesc[f].fixedFile.length() != 0) {
+      printf("Loading file `%s' marking fixed nodes for field %s.\n", fieldDesc[f].fixedFile.cs(), fieldDesc[f].name.cs());
+      PiecewiseLinear fixed(fieldDesc[f].fixedFile.cs(),fieldDesc[f].periodic);
+      if (fixed.length() != fieldList[f]->length()) {
+	fprintf(stderr, "ERROR field -fixed: Fixed node file `%s' does not have the same number of elements as `%s'.\n", fieldDesc[f].fixedFile.cs(), fieldDesc[f].name.cs());
+	exit(-1);
+      }
+
+      // Build the list of free nodes.
+      for (int i = 0; i < fixed.length(); i++)
+	if (fixed.get(i) <= 0.0) fieldDesc[f].freeNodeList.add(i);
+      printf("Number of fixed nodes: %d\n", fieldList[f]->length()-fieldDesc[f].freeNodeList.length());
+    } else {
+      // Just put all the nodes in freeNodeList if there is no fixedFile.
+      for (int i = 0; i < fieldList[f]->length(); i++) fieldDesc[f].freeNodeList.add(i);
+    }
+
   }
 
   void prepareTrajCost(const CommandLineReader& cmdLine, int tc) {
@@ -1339,7 +1344,8 @@ private:
     // Set some defaults.
     double kbt = 1.0;
     int leastLocal = -1;
-    int subintervalSteps = 1;
+    double timestep = -1.0;
+    double maxHop = -1.0;
     int dimension = -1;
     String* optCostVar = new String[cmdLine.getOptionNum()];
     IndexList optTrajVar;
@@ -1350,7 +1356,8 @@ private:
       String val(cmdLine.getOptionValue(o));
 
       if (opt == "kt") kbt = strtod(val, NULL);
-      else if (opt == "steps") subintervalSteps = atoi(val);
+      else if (opt == "timestep") timestep = strtod(val, NULL);
+      else if (opt == "hop") maxHop = strtod(val, NULL);
       else if (opt == "dim") dimension = atoi(val);
       else if (opt == "leastLocal") {
 	// Find the field that correpsponds to the given name.
@@ -1389,6 +1396,8 @@ private:
        trajCostList[tc] = new TrajComer((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "reflect") {
        trajCostList[tc] = new TrajReflect((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+    } else if (type == "noise") {
+       trajCostList[tc] = new TrajNoise((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "fractional") {
        trajCostList[tc] = new TrajFractional((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccgLog") {
@@ -1424,9 +1433,20 @@ private:
        trajCostList[tc] = new TrajComerPmf2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg2d2d2d") {
        trajCostList[tc] = new TrajComer2d2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+    } else if (type == "ballchain") {
+       trajCostList[tc] = new TrajBallChain((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "smoluchowski") {
-      trajCostList[tc] = new TrajBdSmoluchowski((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, solver, subintervalSteps);
-      if (subintervalSteps < 2) fprintf(stderr,"Warning: TrajBdSmoluchowski is meant to be used with subintervalSteps > 1. Unless you are doing testing, add '-steps' to the trajCostList[tc] command.\n");
+      if (timestep < 0.0) {
+	fprintf(stderr,"ERROR: trajCost smoluchowski requires a timestep. Add '-timestep' to the trajCost command.\n");
+	exit(-1);
+      }
+      trajCostList[tc] = new TrajFdSmoluchowski((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, timestep);
+    } else if (type == "simpleSmol") {
+      if (timestep < 0.0 || maxHop < 0.0) {
+	fprintf(stderr,"ERROR: trajCost simpleSmol requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+	exit(-1);
+      }
+      trajCostList[tc] = new TrajSimpleSmol((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, timestep, maxHop);
     } else if (type == "integral") {
       trajCostList[tc] = new TrajIntegral((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
       if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegral is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
@@ -1468,6 +1488,7 @@ private:
 
     printf("  kT %.15g\n", trajCostList[tc]->getKt());
     if (dimension > 0) printf("  dimension %d\n", dimension);
+    if (timestep > 0.0) printf("  timestep %.15g\n", timestep);
 
     printf("  leastLocalField %d \"%s\" \n", leastLocal, fieldDesc[leastLocal].name.cs());
     if (type == "integral") 
@@ -1484,93 +1505,6 @@ private:
     printf("INITIAL_TRAJCOST %d %.15g\n", tc, trajCostList[tc]->calcCost());
 
     delete[] optCostVar;
-  }
-
-  void prepareSolver(const CommandLineReader& cmdLine) {
-    // Initialize objects that solve the Smoluchowski equation.
-    if (cmdLine.getParamNum() != 1) {
-      fprintf(stderr, "ERROR solver: You must specify one type (bd) for the Smoluchowski equation solver\n");
-      printUsage();
-      exit(-1);
-    }
-    
-    printf("\nSMOLUCHOWSKI EQUATION SOLVER\n");    
-    if (cmdLine.getParam(0) == "bd") {
-      int walksMin = 40; // default value
-      int walksMax = 1000; // default value
-      int hitsMin = 20; // default value
-      double binSize = -1; // check value
-      printf("type: Brownian dynamics\n");
-
-      // Read the options.
-      for (int o = 0; o < cmdLine.getOptionNum(); o++) {
-	String opt(cmdLine.getOption(o));
-	String val(cmdLine.getOptionValue(o));
-
-	if (opt == "min") {
-	  walksMin = atoi(val);
-	} else if (opt=="max") {
-	  walksMax = atoi(val);
-	} else if (opt=="hits") {
-	  hitsMin = atoi(val);
-	} else if (opt=="bin") {
-	  binSize = strtod(val,NULL);
-	} else {
-	  fprintf(stderr, "ERROR solver bd: Unrecognized option `%s'.\n", opt.cs());
-	  printUsage();
-	  exit(-1);
-	}
-
-	if (binSize < 0.0) {
-	  fprintf(stderr, "ERROR solver bd: Must set -bin to a positive value.\n");
-	  exit(-1);
-	}
-      }
-
-      // Say the paraemters
-      printf("  binSize %g\n", binSize);
-      printf("  walksMin %d\n", walksMin);
-      printf("  walksMax %d\n", walksMax);
-      printf("  hitsMin %d\n", hitsMin);
-
-      solver = new BdSmoluchowskiSolver(binSize, walksMin, walksMax, hitsMin, rando);
-
-    } else if (cmdLine.getParam(0) == "benesi") {
-      printf("type: Benesi\n");
-
-      int binField = -1;
-      // Read the options.
-      for (int o = 0; o < cmdLine.getOptionNum(); o++) {
-	String opt(cmdLine.getOption(o));
-	String val(cmdLine.getOptionValue(o));
-
-	if (opt == "field") {
-	  int f;
-	  for (f = 0; f < fieldNum; f++) if (fieldDesc[f].name == val) break;
-	  if (f == fieldNum) {	
-	    fprintf(stderr, "ERROR solver benesi: field `%s' has not been defined by a field command.\n", val.cs());
-	    exit(-1);
-	  }
-	  binField = f;
-
-	} else {
-	  fprintf(stderr, "ERROR solver Benesi: Unrecognized option `%s'.\n", opt.cs());
-	  exit(-1);
-	}
-      }
-
-      if (binField < 0) {
-	fprintf(stderr, "ERROR solver Benesi: Must specify a field for the bins with -field.\n");
-	exit(-1);
-      }
-
-      solver = new BenesiSmolSolver(*fieldList[binField]);
-      
-    } else {
-      fprintf(stderr, "ERROR solver: Unrecognized type `%s'.\n", cmdLine.getParam(0).cs());
-      exit(-1);
-    }
-
   }
 
   void prepareMonteCarlo(const CommandLineReader& cmdLine) {

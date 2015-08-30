@@ -8,8 +8,6 @@ struct FieldDesc {
   String name, type, trajVar;
   bool hasMin, hasMax;
   double minVal, maxVal;
-  bool hasFixed;
-  int fixedNode;
   double step;
   double initVal;
   int n;
@@ -20,6 +18,8 @@ struct FieldDesc {
   bool outLog;
   bool outInt;
   String errFile;
+  String fixedFile;
+  IndexList freeNodeList;
   bool global;
 
   String toString() const {
@@ -52,8 +52,8 @@ struct FieldDesc {
       snprintf(cs, STRLEN, " maxVal %g", maxVal);
       s.add(cs);
     }
-    if (hasFixed) {
-      snprintf(cs, STRLEN, " fixedNode %d", fixedNode);
+    if (fixedFile.length() != 0) {
+      snprintf(cs, STRLEN, " fixedFile %s", fixedFile.cs());
       s.add(cs);
     }
     if (periodic) {

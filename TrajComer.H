@@ -2,6 +2,7 @@
 #ifndef TRAJCOMER_H
 #define TRAJCOMER_H
 
+#include <limits>
 #include "useful.H"
 #include "Field.H"
 #include "PiecewiseLinear.H"
@@ -100,6 +101,8 @@ public:
     // The diffusivity and its gradient.
     double dif, gradDif;
     diffuse->computeValGrad(event[e].var[X], dif, gradDif);
+    // Give a huge result for negative diffusivities.
+    if (dif <= 0.0) return std::numeric_limits<double>::max();
 
     // Add the cost of this event.
     double cost = ccgCost(event[e].del[T], event[e].del[D], frc, dif, gradDif);

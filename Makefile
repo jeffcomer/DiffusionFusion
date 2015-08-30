@@ -57,3 +57,6 @@ passage:
 
 fox:
 	g++ -I/opt/local/include -L/opt/local/lib -O3 -Wall -DHAVE_INLINE testFox.C -o testFox -lm -lgsl -lgslcblas
+
+fox1:
+	g++ -I/opt/local/include -L/opt/local/lib -O3 -Wall -DHAVE_INLINE testFox1.C -o testFox1 -lm -lgsl -lgslcblas
