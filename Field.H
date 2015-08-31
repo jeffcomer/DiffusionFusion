@@ -75,8 +75,8 @@ public:
   void setPeriodic(bool b) { periodic = b; }
   // Get and set elements.
   bool validIndex(int j) const { return (j >= 0) && (j < n); }
-  double get(int j) const {
-    if (j < 0 || j >= n) return 0.0;
+  inline double get(int j) const {
+    //if (j < 0 || j >= n) return 0.0;
     return v0[j];
   }
   double operator[](int j) const {

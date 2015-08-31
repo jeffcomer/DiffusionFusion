@@ -310,6 +310,7 @@ void finiteDiff(const double* p0, double* p) {
     IndexList region = nodeRegion(trialMove.node);
     
     // Solve the Smoluchowski equation for each node in the region.
+#pragma omp parallel for
     for (int i = 0; i < region.length(); i++) {
       int i0 = region.get(i);
       smoluchowskiSolve(i0, solnProb[i0], delT);
@@ -321,6 +322,7 @@ void finiteDiff(const double* p0, double* p) {
   // We overload cost so that we can precompute the Smoluchowski solution.
   virtual double calcCost() {
     // Solve the Smoluchowski equation for all nodes.
+#pragma omp parallel for
     for (int i = 0; i < soln.n; i++) smoluchowskiSolve(i, solnProb[i], delT);
 
     return TrajCostComputer::calcCost();
@@ -343,6 +345,7 @@ void finiteDiff(const double* p0, double* p) {
   // Set the local costs.
   virtual double updateLocal() {
     // Solve the Smoluchowski equation for all nodes.
+#pragma omp parallel for
     for (int i = 0; i < soln.n; i++) smoluchowskiSolve(i, solnProb[i], delT);
 
     return TrajCostComputer::updateLocal();

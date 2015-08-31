@@ -133,8 +133,8 @@ public:
   }
 
   // Get the gradient value.
-  double getGrad(int j) const {
-    if (j < 0 || j >= n) return 0.0;
+  inline double getGrad(int j) const {
+    //if (j < 0 || j >= n) return 0.0;
     return v1[j]/dr;
   }
 
