@@ -844,10 +844,8 @@ public:
   }
   
   void clear() {
+    // Don't do any resizing here as this causes slowness.
     num=0;
-    cap=8;
-    delete[] lis;
-    lis = new int[cap];
   }
 
   String toString() const {
