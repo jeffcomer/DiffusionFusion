@@ -4,7 +4,7 @@
 
 #include "useful.H"
 #include "Field.H"
-#include "PiecewiseBicubic.H"
+#include "PiecewiseCubic.H"
 #include "Event.H"
 #include "TrajCostComputer.H"
 

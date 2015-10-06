@@ -699,7 +699,7 @@ public:
   void appendOutputTraj(const String& fileName, int cycle, double cost) const {
     FILE* out = fopen(fileName.cs(), "a");
     if (out == NULL) {
-      printf("ERROR appendOutputTraj: Could not append trajectory file `%s'\n", fileName.cs());
+      fprintf(stderr,"ERROR appendOutputTraj: Could not append trajectory file `%s'\n", fileName.cs());
       exit(-1);
     }
 
@@ -1730,7 +1730,7 @@ private:
     // Initialize the file.
     FILE* out = fopen(outputTraj, "w");
     if (out == NULL) {
-      printf("ERROR initOutputTraj Could not write output trajectory file `%s'\n", outputTraj.cs());
+      fprintf(stderr,"ERROR initOutputTraj Could not write output trajectory file `%s'\n", outputTraj.cs());
       exit(-1);
     }
     fclose(out);
@@ -1786,7 +1786,7 @@ private:
     if (s == String("true") || s == String("yes") || s == String("on") || s==String("1")) return 1;
     if (s == String("false") || s == String("no") || s == String("off") || s==String("0")) return 0;
     
-    printf("ERROR! Invalid boolean value `%s'.\n", s.val());
+    fprintf(stderr,"ERROR! Invalid boolean value `%s'.\n", s.val());
     exit(-1);
   }
 
@@ -1894,7 +1894,7 @@ static bool writeHistogram(const char* fileName, const double* val, int n, const
     // Open the file for writing.
     FILE* out = fopen(fileName,"w");
     if (out == NULL) {
-      printf("writeHistogram Couldn't open file `%s' for writing.\n", fileName);
+      fprintf(stderr,"writeHistogram Couldn't open file `%s' for writing.\n", fileName);
       delete[] count;
       return false;
     }
