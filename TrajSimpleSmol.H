@@ -333,6 +333,7 @@ void finiteDiff(const double* p0, double* p) {
     IndexList region = nodeRegion(trialMove.node);
     
     // Re-solve the Smoluchowski equation for each node in the region.
+#pragma omp parallel for
     for (int i = 0; i < region.length(); i++) {
       int i0 = region.get(i);
       smoluchowskiSolve(i0, solnProb[i0], delT);

@@ -48,6 +48,7 @@
 #include "TrajFdSmoluchowski.H"
 #include "TrajSimpleSmol.H"
 #include "TrajSimpleSmolReflect.H"
+//#include "TrajSmolReflectBias.H"
 #include "TrajBallChain.H"
 #include "TrajNoise.H"
 //#include "TrajMobility.H"
@@ -1454,6 +1455,12 @@ private:
 	exit(-1);
       }
       trajCostList[tc] = new TrajSimpleSmolReflect((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, timestep, maxHop);
+/*    } else if (type == "biasSmol") {
+      if (timestep < 0.0 || maxHop < 0.0) {
+	fprintf(stderr,"ERROR: trajCost reflectSmol requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+	exit(-1);
+      }
+      trajCostList[tc] = new TrajSmolReflectBias((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, timestep, maxHop);*/
     } else if (type == "integral") {
       trajCostList[tc] = new TrajIntegral((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
       if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegral is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
