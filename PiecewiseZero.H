@@ -118,7 +118,9 @@ public:
   }
 
   double getGrad(int j) const {
-    if (j <= 0 || j >= n-1) return 0.0;
+    if (j < 0 || j >= n) return 0.0;
+    if (j == 0) return (v0[1]-v0[0])/dr;
+    if (j == n-1) return (v0[n-1]-v0[n-2])/dr;
     return (v0[j+1]-v0[j-1])/(2.0*dr);
   }
 

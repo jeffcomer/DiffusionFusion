@@ -134,6 +134,13 @@ public:
     return true;
   }
 
+  // We'll allow the neighbors() to be overloaded in derived classes.
+  // The default neighbors is derived from the number of nodes contributing
+  // to the interpolant in the leastLocalField.
+  virtual IndexList neighbors(int home) const {
+    return leastLocalField->neighbors(home);
+  }
+
   // Calculate the cost over all nodes.
   virtual double calcCost() {
     long double cost = 0.0;
@@ -146,7 +153,7 @@ public:
   // Changes to a node in a field affect the events assigned
   // to that node, as well as those assigned to neighboring nodes.
   virtual double deltaCost(const TrialMove& trialMove) {
-    IndexList neigh = leastLocalField->neighbors(trialMove.node);
+    IndexList neigh = neighbors(trialMove.node);
     return deltaCost(trialMove,neigh);
   }
   virtual double deltaCost(const TrialMove& trialMove, const IndexList& neigh) {
@@ -178,7 +185,7 @@ public:
 
   // Revert a trial move.
   virtual void revert(const TrialMove& trialMove) {
-    IndexList neigh = leastLocalField->neighbors(trialMove.node);
+    IndexList neigh = neighbors(trialMove.node);
     revert(trialMove, neigh);
   }
   virtual void revert(const TrialMove& trialMove, const IndexList& neigh) {

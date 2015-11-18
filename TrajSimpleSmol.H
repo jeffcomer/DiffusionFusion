@@ -162,6 +162,9 @@ public:
     int node0 = refField->nearestNode(x0);
     int node1 = refField->nearestNode(x1);
 
+    if (node0 < 0 || node0 >= soln.n) return 0.0;
+    if (node1 < 0 || node1 >= soln.n) return 0.0;
+
     // We have stored a solution vector for each node.
     if (solnProb[node0][node1] == 0.0 || solnProb[node0][node1] == -0.0) {
       fprintf(stderr,"node0 %d x0 %g node %d x1 %g prob %g\n", node0, x0, node1, x1, solnProb[node0][node1]);
@@ -236,7 +239,7 @@ private:
     double frc = force->get(i);
     double gradFrc = force->getGrad(i);
 
-    return dif*ddpi + (gradDif - dif*frc)*dpi - (dif*gradFrc + gradDif*frc)*pc;
+    return dif*ddpi + (gradDif - beta*dif*frc)*dpi - beta*(dif*gradFrc + gradDif*frc)*pc;
   }
 
   void finiteDiffPeriodic(const double* p0, double* p) {

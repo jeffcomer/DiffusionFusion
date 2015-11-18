@@ -92,7 +92,7 @@ public:
 	if (!inComment && seg.length() > 2) {
 	  // Sanity check.
 	  if (f >= fieldNum) {
-	    printf("ERROR HistoryReader::HistoryReader More segments found in the file `%s' than suggested by countSegments() (%d)\n", histFile, fieldNum);
+	    fprintf(stderr,"ERROR HistoryReader::HistoryReader More segments found in the file `%s' than suggested by countSegments() (%d)\n", histFile, fieldNum);
 	    exit(-1);
 	  }
 
@@ -116,7 +116,7 @@ public:
     if (!inComment && seg.length() > 2) {
       // Sanity check.
       if (f >= fieldNum) {
-	printf("ERROR HistoryReader::HistoryReader More segments found in the file `%s' than suggested by countSegments() (%d)\n", histFile, fieldNum);
+	fprintf(stderr,"ERROR HistoryReader::HistoryReader More segments found in the file `%s' than suggested by countSegments() (%d)\n", histFile, fieldNum);
 	exit(-1);
       }
 
@@ -134,6 +134,11 @@ public:
   // Find the number of comment (#) separated segments.
   static int countSegments(const char* fileName) {
     FILE* inp = fopen(fileName, "r");
+    if (inp == NULL) {
+	fprintf(stderr,"ERROR HistoryReader::countSegments Cannot open file `%s' for reading.\n", fileName);
+	exit(-1);
+    }
+
     char line[STRLEN];
     int count = 0;
     bool inComment = false;
