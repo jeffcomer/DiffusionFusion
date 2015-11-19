@@ -157,7 +157,9 @@ public:
 
   // Get the gradient value.
   inline double getGrad(int j) const {
-    //if (j < 0 || j >= n) return 0.0;
+    if (j < 0 || j >= n) return 0.0;
+    if (j == 0) return (v0[1]-v0[0])/dr;
+    if (j == n-1) return (v0[n-1]-v0[n-2])/dr;
     return v1[j]/dr;
   }
 

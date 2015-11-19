@@ -6,6 +6,8 @@ struct SolutionStruct {
 public:
   int n;
   double dx, dxSq, x0;
+  bool periodic;
+  double timestep;
 };
 
 #endif

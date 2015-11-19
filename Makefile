@@ -60,3 +60,11 @@ fox:
 
 fox1:
 	g++ -I/opt/local/include -L/opt/local/lib -O3 -Wall -DHAVE_INLINE testFox1.C -o testFox1 -lm -lgsl -lgslcblas
+
+smol:
+	g++ -O2 -Wall doSmoluchowskiReflect.C -o doSmoluchowskiReflect -lm -fopenmp
+smoldebug:
+	g++ -ggdb doSmoluchowskiReflect.C -o doSmoluchowskiReflect -lm -fopenmp
+
+crank:
+	g++ -I/opt/local/include -L/opt/local/lib -O3 -Wall -DHAVE_INLINE -DGSL_RANGE_CHECK_OFF doCrank.C -o doCrank -lm -lgsl -lgslcblas -fopenmp

@@ -1,0 +1,328 @@
+// Author: Jeff Comer <jeffcomer at gmail>
+#ifndef TRAJSMOLREFLECTBIAS_H
+#define TRAJSMOLREFLECTBIAS_H
+
+#include "useful.H"
+#include "Field.H"
+#include "PiecewiseLinear.H"
+#include "PiecewiseCubic.H"
+#include "PiecewiseZero.H"
+#include "Event.H"
+#include "TrajCostComputer.H"
+#include "SolutionStruct.H"
+
+class TrajSmolReflectBias : public TrajCostComputer {
+private:
+  const Piecewise1d* diffuse;
+  const Piecewise1d* force;
+  const Piecewise1d** biasFieldList;
+  int T, X;
+  const Piecewise1d* refField;
+  double timestep, maxHop;
+  
+  int biasFieldNum;
+  SolutionStruct soln;
+  double delT;
+  IndexList all;
+  
+public:
+  TrajSmolReflectBias(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, const Piecewise1d** biasFieldList0, double timestep0, double maxHop0) :
+    TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 3), biasFieldList(biasFieldList0), timestep(timestep0), maxHop(maxHop0) {
+
+    if (tcFieldNum != 2) {
+      fprintf(stderr, "ERROR trajCost SmolReflectBias takes two fields: (0) diffusivity (1) force\n");
+      exit(-1);
+    }
+
+    diffuse = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(0)]);
+    if (diffuse == NULL) {
+      fprintf(stderr,"ERROR trajCost SmolReflectBias requires field type linear or cubic.\n");
+      exit(-1);
+    }
+    force = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(1)]);
+    if (force == NULL) {
+      fprintf(stderr,"ERROR trajCost SmolReflectBias requires field type linear or cubic.\n");
+      exit(-1);
+    }
+
+    //std::numeric_limits<double>::infinity();
+
+    T = 1;
+    X = 0;
+
+    refField = dynamic_cast<const Piecewise1d*>(leastLocalField); // defined in TrajCostComputer
+    if (refField == NULL) {
+      fprintf(stderr,"ERROR trajCost SmolReflectBias requires leastLocalField type linear or cubic.\n");
+      exit(-1);
+    }
+
+    // The solution will be stored in these objects.
+    soln.n = refField->length();
+    soln.dx = refField->getDr();
+    soln.dxSq = soln.dx*soln.dx;
+    soln.x0 = refField->getR0();
+    for (int i = 0; i < soln.n; i++) all.add(i);
+
+    // Validate the diffusivity and force.
+    if (diffuse->length() != force->length() || diffuse->length() != refField->length()) {
+      fprintf(stderr,"diffuse->length() %d force->length() %d refField->length() %d\n", diffuse->length(), force->length(), refField->length());
+      fprintf(stderr,"ERROR trajCost SmolReflectBias requires all fields to have the same number of nodes\n");
+      exit(-1);
+    }
+
+    updateLocal();
+    cloneLast();
+  }
+
+  ~TrajSmolReflectBias() {
+  }
+
+
+  void eventVarShortcuts() {
+    T = eventIndList[0];
+    X = eventIndList[1];
+    for (int i = 0; i < 2; i++) printf("eventIndList[%d] = %d\n", i, eventIndList[i]);
+  }
+  // Event variables.
+  String eventVarName(int ind) const {
+    switch(ind) {
+    case 0:
+      return String("time");
+    case 1:
+      return String("pos");
+    case 2:
+      return String("displacement");  
+    default:
+      return String("UNKNOWN");
+    }
+  }
+
+  String fieldName(int ind) const {
+    switch(ind) {
+    case 0:
+      return String("diffusivity");
+    case 1:
+      return String("force");
+    default:
+      return String("UNKNOWN");
+    }
+  }
+
+  // Overload neighbors() to give 
+  // a region around the node defined by the user.
+  virtual IndexList neighbors(int home) const {
+    IndexList ret;
+
+    if (maxHop >= refField->length()) return all;
+
+    if (refField->getPeriodic()) {
+      ret.add(home);
+      for (int i = 1; i < maxHop; i++) {
+	ret.add(refField->wrapNode(home-i));
+	ret.add(refField->wrapNode(home+i));
+      }
+    } else {
+      int i0 = home-maxHop;
+      int i1 = home+maxHop;
+      if (i0 < 0) i0 = 0;
+      if (i1 >= soln.n) i1 = soln.n-1;
+      for (int i = i0; i <= i1; i++) ret.add(i);
+    }
+    return ret;
+  }
+
+  // Get the cost for an event by using the Smoluchowski solution
+  // over the diffusivity and force fields.
+  double eventCost(int e) {
+    double x0 = event[e].var[X];
+    double x1 = x0 + event[e].del[X];
+    int node0 = refField->nearestNode(x0);
+    int node1 = refField->nearestNode(x1);
+
+    if (node0 < 0 || node0 >= soln.n) return 0.0;
+    if (node1 < 0 || node1 >= soln.n) return 0.0;
+
+    // Do the solution from scratch for each event. Expensive!
+    double solnProb[soln.n];
+    // smoluchowskiSolve deals with the initial condition.
+    smoluchowskiSolve(node0, solnProb, event[e].del[T], event[e].bias);
+
+    //for (int i = 0; i < soln.n; i++) printf("%g\n", solnProb[i]);
+
+    if (solnProb[node1] == 0.0 || solnProb[node1] == -0.0 || solnProb[node1] != solnProb[node1]) {
+      fprintf(stderr,"node0 %d x0 %g node %d x1 %g prob %g\n", node0, x0, node1, x1, solnProb[node1]);
+      fprintf(stderr,"nodes %d x0 %g dx %g\n", soln.n, soln.x0, soln.dx);
+      fprintf(stderr,"ERROR trajCost smoluchowski: Probability of arrival is zero or NaN. Check -timestep.\n");
+      solnProb[node1] = 0.0;
+    } 
+    // We have stored a solution vector for each node.
+    double cost = -log(solnProb[node1]);
+    //nanCheck(cost,'e',e,event[e].del[X],solnProb[node1],solnProb[node1],solnProb[node1]);
+    return cost;
+  }
+
+private:
+  // Iterate the Smoluchowski equation on a given probability distribution.
+  // The diffusivity and force arrays must be set.
+  void smoluchowskiSolve(int node, double* prob, double dt, int bias) {
+    double prob0[soln.n];
+    double* p0 = prob0;
+    double* p = prob;
+
+    // Zero the initial distribution.
+    for (int i = 0; i < soln.n; i++) p[i] = 0.0;
+    // Add the delta function at the initial point.
+    p[node] = 1.0/soln.dx;
+
+    // Steps is always even so the solution is always in prob.
+    int steps = 2*int(0.5*dt/timestep);
+    if (steps < 4) {
+      fprintf(stderr,"ERROR trajCost smoluchowski: Smoluchowski solver steps < 4. Reduce -timestep.\n");
+      exit(-1);
+    }
+    //printf("steps %d\n", steps);
+
+    // Iterate the solution.
+    if (refField->getPeriodic()) {
+      for (int s = 0; s < steps; s++) {
+	// Swap the pointers.
+	double* tmp = p0;
+	p0 = p;
+	p = tmp;
+
+	// Do the finite difference calculation.
+	finiteDiffPeriodic(p0, p, bias);
+      }
+    } else {
+      for (int s = 0; s < steps; s++) {
+	// Swap the pointers.
+	double* tmp = p0;
+	p0 = p;
+	p = tmp;
+
+	// Do the finite difference calculation.
+	finiteDiff(p0, p, bias);
+      }
+    }
+
+    // if (bias >= 0) {
+    //   printf("BIAS %d\n", bias);
+    //   biasFieldList[bias]->write("bias.dat");
+    //   biasFieldList[0]->write("bias0.dat");
+    // }
+
+    //// Write the solution to a file.
+    //PiecewiseZero out(p, soln.n, soln.x0, soln.dx, false);
+    //out.write("soln.dat");
+    //exit(-1);
+  }
+
+  // The left-hand side of the differential equation.
+  double slope(int i, double pm1, double pc, double pp1, int bias) {
+    // 3-point numerical derivatives.
+    double dpi = 0.5*(pp1-pm1)/soln.dx;
+    double ddpi = (pm1 - 2.0*pc + pp1)/soln.dxSq;
+
+    double dif = diffuse->get(i);
+    double gradDif = diffuse->getGrad(i);
+    double frc = force->get(i);
+    double gradFrc = force->getGrad(i);
+    double frcBias, gradFrcBias;
+    if (bias >= 0) {
+      double x = refField->getNodePos(i);
+      int j = biasFieldList[bias]->nearestNode(x);
+      if (j>=0 && j<biasFieldList[bias]->length()) {
+	frcBias = biasFieldList[bias]->get(j);
+	gradFrcBias = biasFieldList[bias]->getGrad(j);
+	frc += frcBias;
+	gradFrc += gradFrcBias;
+      }
+    }
+
+    return dif*ddpi + (gradDif - beta*dif*frc)*dpi - beta*(dif*gradFrc + gradDif*frc)*pc;
+  }
+
+
+  void finiteDiffPeriodic(const double* p0, double* p, int bias) {
+    // Periodic boundary conditions at left.
+    {
+      int i = 0;
+      double pm1 = p0[soln.n-1];
+      double pi = p0[i];
+      double pp1 = p0[i+1];
+
+      p[i] = pi + slope(i,pm1,pi,pp1,bias)*timestep;
+    }
+
+    // Periodic boundary conditions at right.
+    {
+      int i = soln.n-1;
+      double pm1 = p0[i-1];
+      double pi = p0[i];
+      double pp1 = p0[0];
+
+      p[i] = pi + slope(i,pm1,pi,pp1,bias)*timestep;
+    }
+
+    // The interior.
+    for (int i = 1; i < soln.n-1; i++) {
+      double pm1 = p0[i-1];
+      double pi = p0[i];
+      double pp1 = p0[i+1];
+
+      p[i] = pi + slope(i,pm1,pi,pp1,bias)*timestep;
+    }
+  }
+
+
+  void finiteDiff1(const double* p0, double* p, int bias) {
+    // The interior.
+    for (int i = 1; i < soln.n-1; i++) {
+      double pm1 = p0[i-1];
+      double pi = p0[i];
+      double pp1 = p0[i+1];
+
+      p[i] = pi + slope(i,pm1,pi,pp1,bias)*timestep;
+    }
+
+    // Reflecting boundary conditions.
+    // Found from no-flux condition.
+    p[0] = p[1];
+    p[soln.n-1] = p[soln.n-2];
+  }
+
+
+  void finiteDiff(const double* p0, double* p, int bias) {
+    // Reflecting boundary conditions at left.
+    {
+      int i = 0;
+      double pm1 = p0[i];
+      double pi = p0[i];
+      double pp1 = p0[i+1];
+
+      p[i] = pi + slope(i,pm1,pi,pp1,bias)*timestep;
+    }
+
+    // Reflecting boundary conditions at right.
+    {
+      int i = soln.n-1;
+      double pm1 = p0[i-1];
+      double pi = p0[i];
+      double pp1 = p0[i];
+
+      p[i] = pi + slope(i,pm1,pi,pp1,bias)*timestep;
+    }
+
+    // The interior.
+    for (int i = 1; i < soln.n-1; i++) {
+      double pm1 = p0[i-1];
+      double pi = p0[i];
+      double pp1 = p0[i+1];
+
+      p[i] = pi + slope(i,pm1,pi,pp1,bias)*timestep;
+    }
+  }
+
+};
+
+#endif
