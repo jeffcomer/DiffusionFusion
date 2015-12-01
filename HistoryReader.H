@@ -35,6 +35,10 @@ public:
     return fieldList[frame];
   }
 
+  void smooth(double width) {
+    
+  }
+
   int enforceFullSamples(const char* countHistFile, int fullSamples) {
     PiecewiseCubic** ppCount = new PiecewiseCubic*[fieldNum];
     int changed = 0;

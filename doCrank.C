@@ -61,6 +61,7 @@ int main(int argc, char* argv[]) {
   for (int c = 0; c < cycles; c++) {
     // Write the output.
     init.reset(prob, init.getPeriodic());
+    solver.conserveProb(init);
     snprintf(outFile, 256, "%s.%d.dat", outPrefix, c);
     init.write(outFile);
 

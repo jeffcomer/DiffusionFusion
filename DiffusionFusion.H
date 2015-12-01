@@ -49,6 +49,7 @@
 #include "TrajSimpleSmol.H"
 #include "TrajSimpleSmolReflect.H"
 #include "TrajSmolReflectBias.H"
+#include "TrajSmolCrankBias.H"
 #include "TrajBallChain.H"
 #include "TrajNoise.H"
 //#include "TrajMobility.H"
@@ -66,6 +67,7 @@ public:
   String biasFile;
   String biasCountFile;
   int biasFullSamples;
+  double biasSmoothWidth;
   int eventFirst;
   int eventLast;
   int serialLast;
@@ -359,7 +361,7 @@ public:
     fprintf(stdout, "\t*Note: Organizing the data into contiguous blocks, as effected by -block, is useful for intergral methods.\n");
     fprintf(stdout, "\t*Note: An important restriction is that the coordinates must be given in the order of the axes of the fields.");
     fprintf(stdout, "\t e.g., the first -coor is assumed to the primary direction in all fields.\n");
-    fprintf(stdout, "\nload trajFile [-stride dataStride] [-skip eventSkip] [-minVar colName -minVal val] [-maxVar colName -maxVal val] [-scaleVar colName -scaleVal val] [-periodicVar col -periodicMin qMin -periodicMax qMax] [-pos init|mid|final] [-bias biasHistoryFile] [-biasCount biasCountHistoryFile] [-biasFullSamples fullSamples]\n");
+    fprintf(stdout, "\nload trajFile [-stride dataStride] [-skip eventSkip] [-minVar colName -minVal val] [-maxVar colName -maxVal val] [-scaleVar colName -scaleVal val] [-periodicVar col -periodicMin qMin -periodicMax qMax] [-pos init|mid|final] [-bias biasHistoryFile] [-biasSmooth width] [-biasCount biasCountHistoryFile] [-biasFullSamples fullSamples]\n");
     //fprintf(stdout, "\t*Note: -minVal and -maxVal filters apply to the initial of position of an event\n");
     fprintf(stdout, "\t*Note: -stride changes the time between frames, while -skip\n\t\tthrows out events after the interval has been calculated.\n");
     fprintf(stdout, "\nloadMany trajFileFile [same options as load]\n");
@@ -1043,8 +1045,12 @@ private:
 	traj.biasFile = val;
       } else if (opt == "biasCount") {
 	traj.biasCountFile = val;
+      } else if (opt == "biasCount") {
+	traj.biasCountFile = val;
       } else if (opt == "biasFullSamples") {
 	traj.biasFullSamples = atoi(val);
+      } else if (opt == "biasSmooth") {
+	traj.biasSmoothWidth = strtod(val, NULL);
       } else if (opt == "scaleVar") {
 	if (o+1 >= cmd.getOptionNum() || cmd.getOption(o+1) != "scaleVal") {
 	  fprintf(stderr, "ERROR load %s: -scaleVar must be followed by -scaleVal\n", fileName.cs());

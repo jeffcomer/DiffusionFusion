@@ -16,7 +16,6 @@ private:
   double dx, x0;
   bool periodic;
   double timestep;
-  double invTimestep;
   double beta;
 
 public:
@@ -26,9 +25,10 @@ public:
     x0 = refField->getR0();
     periodic = refField->getPeriodic();
     timestep = timestep0;
-    invTimestep = 1.0/timestep;
     beta = 1.0/kT;
   }
+
+  int length() const { return n; }
 
   void init(double* prob, int node) const {
     // Zero the initial distribution.
@@ -61,31 +61,46 @@ public:
        	gradFrc += gradFb;
        }
 
-      // Calculate the coefficients.
+      /////////////////////////////////////////////////////////////////
+      // We are solving the differential equation for p(x,t)
+      // p_t = D*p_xx + (D_x - beta*D*F)*p_x - beta*(D*F_x + D_x*F)*p
+      // Here, subscripts represent partial derivatives.
+      // D(x): the diffusivity
+      // F(x,t) = -w_x(x) + fBias(x,t): the total force
+      // beta: 1/(kT)
+      //
+      // We write this equation as
+      // p_t = ca*p + cb*p_x + D*p_xx
+      // Below we use r = D*dt/dx^2, consistent with 
+      // Numerical Methods Using Matlab 4th Ed. Mathews and Fink, pp. 561-562
+      // Calculate the coefficients ca, cb, and r.
       ca[i] = -beta*(dif*gradFrc + gradDif*frc)*timestep;
       cb[i] = 0.5*(gradDif - beta*dif*frc)/dx*timestep;
       r[i] = dif*timestep/(dx*dx);
     }
 
     // Boundary conditions.
-    //double fudge = 1.17; // Why?
     // Left
     double frcA = force->computeVal(x0);
     if (bias != NULL) frcA += bias->computeVal(x0);
-    double driftA = beta*frcA*dx;
+    // A dimensionless variable related to the drift at the left boundary.
+    double driftA = beta*frcA*dx; 
     // Right
     double x1 = x0 + (n-1)*dx;
     double frcB = force->computeVal(x1);
     if (bias != NULL) frcB += bias->computeVal(x1);
+    // A dimensionless variable related to the drift at the right boundary.
     double driftB = beta*frcB*dx;
     
     // Allocate linear system vectors.
-    gsl_vector* d = gsl_vector_alloc(n);
-    gsl_vector* e = gsl_vector_alloc(n-1);
-    gsl_vector* f = gsl_vector_alloc(n-1);
-    gsl_vector* b = gsl_vector_alloc(n);
-    gsl_vector* sol = gsl_vector_alloc(n);
-    gsl_vector* sol0 = gsl_vector_alloc(n);
+    // We have a tridiagonal matrix.
+    // See: https://www.gnu.org/software/gsl/manual/html_node/Tridiagonal-Systems.html
+    gsl_vector* d = gsl_vector_alloc(n); // Matrix diagonal
+    gsl_vector* e = gsl_vector_alloc(n-1); // Band to the right of diagonal
+    gsl_vector* f = gsl_vector_alloc(n-1); // Band to the left of diagonal
+    gsl_vector* b = gsl_vector_alloc(n); // the right side of Mx = b
+    gsl_vector* sol = gsl_vector_alloc(n); // the solution "x"
+    gsl_vector* sol0 = gsl_vector_alloc(n); // a buffer to swap
 
     // Intialize the solution vector.
     for (int i = 0; i < n; i++) gsl_vector_set(sol, i, prob[i]);
@@ -97,8 +112,8 @@ public:
       sol = tmp;
       
       // Robin boundary conditions (zero flux).
-      // Use the O(dx^2) forward finite difference.
       // Reflecting at left.
+      // Use the O(dx^2) forward finite difference.
       {
 	int i = 0;
 	double corr = (cb[i]-r[i])/(3.0+2.0*driftA);
@@ -136,7 +151,7 @@ public:
       //gsl_vector_set(d, n-1, 1.0);
       //gsl_vector_set(b, n-1, 0.0);
 
-      // Interior using a Crank-Nicholson approach.
+      // Interior nodes using a Crank-Nicholson approach.
       // See: Numerical Methods Using Matlab 4th Ed. Mathews and Fink, pp. 561-562
       // See: https://www.gnu.org/software/gsl/manual/html_node/Tridiagonal-Systems.html
       for (int i = 1; i < n-1; i++) {
@@ -153,8 +168,6 @@ public:
       gsl_linalg_solve_tridiag(d, e, f, b, sol);
     }
 
-    // Conserve the probability.
-    conserveProb0(sol);
 	  
     // Copy the results into prob.
     for (int i = 0; i < n; i++) prob[i] = gsl_vector_get(sol, i);
@@ -168,13 +181,20 @@ public:
     gsl_vector_free(sol0);
   }
 
-  void conserveProb0(gsl_vector* sol) const {
+  void conserveProb(double* sol, int len) const {
     double sum = 0.0;
-    for (int i = 0; i < n; i++) sum += gsl_vector_get(sol, i);
+    for (int i = 0; i < len; i++) sum += sol[i];
     double scale = 1.0/(sum*dx);
     printf("scale %g\n", sum*dx);
-    for (int i = 0; i < n; i++)
-      gsl_vector_set(sol, i, scale*gsl_vector_get(sol, i));
+    for (int i = 0; i < n; i++) sol[i] *= scale;
+  }
+
+  void conserveProb(Piecewise1d& sol) const {
+    double sum = 0.0;
+    for (int i = 0; i < sol.length(); i++) sum += sol.get(i);
+    double scale = 1.0/(sum*sol.getDr());
+    printf("scale %g\n", sum*sol.getDr());
+    sol.scale(scale);
   }
 
   ~CrankNicholsonSolver() {
