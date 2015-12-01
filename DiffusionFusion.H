@@ -937,6 +937,7 @@ private:
 	if (fileList[f].biasFile.length() != 0) {
 	  // We have a bias file, load it.
 	  biasHistoryList[f] = new HistoryReader(fileList[f].biasFile.cs());
+
 	  // Load the count file if we set fullSamples.
 	  // We need to mimic how colvars handles fullSamples.
 	  if (fileList[f].biasFullSamples > 0) {
@@ -948,6 +949,15 @@ private:
 	    int changed = biasHistoryList[f]->enforceFullSamples(fileList[f].biasCountFile.cs(), fileList[f].biasFullSamples);
 	    if (f < dispFileMax) printf("Rescaled %d bias forces to imitate the colvars module with fullSamples=%d\n", changed,  fileList[f].biasFullSamples);
 	  }
+
+	  // Smooth the data.
+	  if (fileList[f].biasSmoothWidth > 0.0) {
+	    if (f < dispFileMax) printf("Applying Gaussian smoothing with width %g\n", fileList[f].biasSmoothWidth);
+	    biasHistoryList[f]->smooth(fileList[f].biasSmoothWidth);
+	    //if (f==0) biasHistoryList[f]->getBiasFrame(0)->write("bias.dat");
+	  }
+
+	  // Keep an index of bias fields.
 	  biasFieldNum += biasHistoryList[f]->length();
 
 	  if (f < dispFileMax)
@@ -1017,6 +1027,10 @@ private:
     traj.skip = 1;
     traj.position = TrajFile::posInit;
     traj.filter = new TrajFilter(trajVarNum);
+    traj.biasFile = "";
+    traj.biasCountFile = "";
+    traj.biasFullSamples = -1;
+    traj.biasSmoothWidth = -1;
 
     // Add the options.
     for (int o = 0; o < cmd.getOptionNum(); o++) {
@@ -1043,8 +1057,6 @@ private:
 	}
       } else if (opt == "bias") {
 	traj.biasFile = val;
-      } else if (opt == "biasCount") {
-	traj.biasCountFile = val;
       } else if (opt == "biasCount") {
 	traj.biasCountFile = val;
       } else if (opt == "biasFullSamples") {
@@ -1467,6 +1479,12 @@ private:
 	exit(-1);
       }
       trajCostList[tc] = new TrajSmolReflectBias((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, timestep, maxHop);
+    } else if (type == "smolCrank") {
+      if (timestep < 0.0 || maxHop < 0.0) {
+	fprintf(stderr,"ERROR: trajCost smolCrank requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+	exit(-1);
+      }
+      trajCostList[tc] = new TrajSmolCrankBias((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, timestep, maxHop);
     } else if (type == "integral") {
       trajCostList[tc] = new TrajIntegral((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
       if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegral is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");

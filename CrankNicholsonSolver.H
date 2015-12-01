@@ -181,20 +181,22 @@ public:
     gsl_vector_free(sol0);
   }
 
-  void conserveProb(double* sol, int len) const {
+  double conserveProb(double* sol, int len) const {
     double sum = 0.0;
     for (int i = 0; i < len; i++) sum += sol[i];
     double scale = 1.0/(sum*dx);
-    printf("scale %g\n", sum*dx);
+    //printf("scale %g\n", sum*dx);
     for (int i = 0; i < n; i++) sol[i] *= scale;
+    return scale;
   }
 
-  void conserveProb(Piecewise1d& sol) const {
+  double conserveProb(Piecewise1d& sol) const {
     double sum = 0.0;
     for (int i = 0; i < sol.length(); i++) sum += sol.get(i);
     double scale = 1.0/(sum*sol.getDr());
-    printf("scale %g\n", sum*sol.getDr());
+    //printf("scale %g\n", sum*sol.getDr());
     sol.scale(scale);
+    return scale;
   }
 
   ~CrankNicholsonSolver() {

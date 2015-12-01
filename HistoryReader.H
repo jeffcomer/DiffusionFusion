@@ -36,7 +36,35 @@ public:
   }
 
   void smooth(double width) {
-    
+    for (int f = 0; f < fieldNum; f++) {
+      double dr = fieldList[f]->getDr();
+      double decay = (dr*dr)/(2.0*width*width);
+      // Using a sampling window of 8 standard deviations.
+      int winHalf = int(8.0*width/dr)/2;
+
+      const int n = fieldList[f]->length();
+      // Get the initial values.
+      double data[n];
+      for (int i = 0; i < n; i++) data[i] = fieldList[f]->get(i);
+
+      // Gaussian filter.
+      for (int i = 0; i < n; i++) {
+	int j0 = i - winHalf;
+	int j1 = i + winHalf;
+	if (j0 < 0) j0 = 0;
+	if (j1 >= n) j1 = n-1;
+
+	double sum = 0.0;
+	double sumW = 0.0;
+	for (int j = j0; j <= j1; j++) {
+	  double wj = exp(-(j-i)*(j-i)*decay);
+	  sumW += wj;
+	  sum += wj*data[j];
+	}
+
+	fieldList[f]->set(i,sum/sumW);
+      }
+    }
   }
 
   int enforceFullSamples(const char* countHistFile, int fullSamples) {

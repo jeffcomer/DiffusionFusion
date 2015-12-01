@@ -67,6 +67,9 @@ int main(int argc, char* argv[]) {
 
     solver.solve(prob, outPeriod, &diffuse, &force, &bias);
   }
+
+  snprintf(outFile, 256, "%s.final.dat", outPrefix);
+  init.write(outFile);
   
   double runTime = omp_get_wtime() - clockInit;
   printf("\nRun time: %.10g s\n", runTime);
