@@ -50,6 +50,7 @@
 #include "TrajSimpleSmolReflect.H"
 #include "TrajSmolReflectBias.H"
 #include "TrajSmolCrankBias.H"
+#include "TrajSmolCrank.H"
 #include "TrajBallChain.H"
 #include "TrajNoise.H"
 //#include "TrajMobility.H"
@@ -373,7 +374,7 @@ public:
     fprintf(stdout, "\t*Note: -global permits parameters that affect all nodes.\n");
     fprintf(stdout, "\nprior scale|known|smooth field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension] [-start startingFieldIndex] [-end endingFieldIndex]\n");
     fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -tol relErrMax -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
-    fprintf(stdout, "\ntrajCost ccg|ccgPmf|ballchain|ccg2d|reflect|reflect2d|langevinExp|smoluchowski|simpleSmol|reflectSmol field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-timestep timestep] [-hop maxHop] [-dim primaryDimension]\n");
+    fprintf(stdout, "\ntrajCost ccg|ccgPmf|ballchain|ccg2d|reflect|reflect2d|langevinExp|smoluchowski|simpleSmol|reflectSmol|smolCrank|smolCrank0 field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-timestep timestep] [-hop maxHop] [-dim primaryDimension]\n");
     fprintf(stdout, "\ndump events|fields|distro|best|eventCost|bias dumpFile\n");
     fprintf(stdout, "\t*Note: A '%%' in dumpFile is substituted with 'output'.\n");
   }
@@ -616,6 +617,7 @@ public:
 	  fprintf(stdout, "Try setting `-leastLocal' to the grid with the widest grid spacing,\n");
 	  fprintf(stdout, "or making the grid spacing of your MC fields identical.\n");
 	  fprintf(stdout, "Other options include decreasing `-update' or `-cycle'.\n");
+	  fprintf(stdout, "For Smoluchowski solvers, you may need to increase `-hop'.\n");
 	  fprintf(stdout, "Could also indicate a bug in the chosen trajCost method.\n");
 	  if (stepsPerCycle == 1)  {
 	    fprintf(stdout, "fieldId %d node %d trialVal %g lastVal %g\n", trialMove.fieldId, trialMove.node, trialMove.trialVal, trialMove.lastVal);
@@ -624,7 +626,10 @@ public:
 	    for (int n = 0; n < neigh.length(); n++) fprintf(stdout," %d", neigh.get(n));
 	    fprintf(stdout,"\n");
 	  }
-	  if (cycle > 3*updatePeriod) exit(-1);
+	  if (cycle > 3*updatePeriod) {
+	    fprintf(stderr, "ERROR Large difference between locally accumulated cost and global cost.\n");
+	    exit(-1);
+	  }
 	}
 
 	lastCost = costUpdate;
@@ -1485,6 +1490,12 @@ private:
 	exit(-1);
       }
       trajCostList[tc] = new TrajSmolCrankBias((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, timestep, maxHop);
+    } else if (type == "smolCrank0") {
+      if (timestep < 0.0 || maxHop < 0.0) {
+	fprintf(stderr,"ERROR: trajCost smolCrank0 requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+	exit(-1);
+      }
+      trajCostList[tc] = new TrajSmolCrank((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, timestep, maxHop);
     } else if (type == "integral") {
       trajCostList[tc] = new TrajIntegral((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
       if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegral is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");

@@ -5,7 +5,6 @@
 #define CRANKNICHOLSONSOLVER_H
 
 #include "Piecewise1d.H"
-#include "SolutionStruct.H"
 #include <omp.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_linalg.h>
@@ -102,6 +101,29 @@ public:
     gsl_vector* sol = gsl_vector_alloc(n); // the solution "x"
     gsl_vector* sol0 = gsl_vector_alloc(n); // a buffer to swap
 
+    // Fill in the matrix.
+    int j;
+    // Robin boundary conditions (zero flux).    
+    // Left: Use the O(dx^2) forward finite difference.
+    j = 0;
+    double corrA = (cb[j]-r[j])/(3.0+2.0*driftA);
+    gsl_vector_set(d, j, 2.0 + 2.0*r[j] - ca[j] + 4.0*corrA);
+    gsl_vector_set(e, j, -(cb[j] + r[j] + corrA));
+    // Right: Use the O(dx^2) backward finite difference.
+    j = n-1;
+    double corrB = -(cb[j]+r[j])/(3.0-2.0*driftB);
+    gsl_vector_set(d, j, 2.0 + 2.0*r[j] - ca[j] + 4.0*corrB);
+    gsl_vector_set(f, j-1, cb[j] - (r[j] + corrB));
+
+    // Interior nodes using a Crank-Nicholson approach.
+    // See: Numerical Methods Using Matlab 4th Ed. Mathews and Fink, pp. 561-562
+    // See: https://www.gnu.org/software/gsl/manual/html_node/Tridiagonal-Systems.html
+    for (int i = 1; i < n-1; i++) {
+      gsl_vector_set(d, i, 2.0 + 2.0*r[i] - ca[i]);
+      gsl_vector_set(f, i-1, cb[i] - r[i]);
+      gsl_vector_set(e, i, -(cb[i] + r[i]));
+    }
+
     // Intialize the solution vector.
     for (int i = 0; i < n; i++) gsl_vector_set(sol, i, prob[i]);
 
@@ -110,54 +132,28 @@ public:
       gsl_vector* tmp = sol0;
       sol0 = sol;
       sol = tmp;
-      
-      // Robin boundary conditions (zero flux).
+
+      // Fill in the vector b.
       // Reflecting at left.
-      // Use the O(dx^2) forward finite difference.
       {
 	int i = 0;
-	double corr = (cb[i]-r[i])/(3.0+2.0*driftA);
-	gsl_vector_set(d, i, 2.0 + 2.0*r[i] - ca[i] + 4.0*corr);
-	gsl_vector_set(e, i, -(cb[i] + r[i] + corr));
 	double um = (4.0*gsl_vector_get(sol0,i) - gsl_vector_get(sol0,i+1))/(3.0+2.0*driftA);
 	gsl_vector_set(b, i,
 		       (2.0 - 2.0*r[i] + ca[i])*gsl_vector_get(sol0,i)
 		       + (r[i] - cb[i])*um
 		       + (r[i] + cb[i])*gsl_vector_get(sol0,i+1));
       }
-
       // Reflecting at right.
-      // Use the O(dx^2) backward finite difference.
-      // The finite difference formulas change signs; hence, 3.0-2.0*driftB.
       {
 	int i = n-1;
-	double corr = -(cb[i]+r[i])/(3.0-2.0*driftB);
-	gsl_vector_set(d, i, 2.0 + 2.0*r[i] - ca[i] + 4.0*corr);
-	gsl_vector_set(f, i-1, cb[i] - (r[i] + corr));
 	double up = (4.0*gsl_vector_get(sol0,i) - gsl_vector_get(sol0,i-1))/(3.0-2.0*driftB);
 	gsl_vector_set(b, i,
 		       (2.0 - 2.0*r[i] + ca[i])*gsl_vector_get(sol0,i)
 		       + (r[i] - cb[i])*gsl_vector_get(sol0,i-1)
 		       + (r[i] + cb[i])*up);
       }
-
-      // Absorbing at left.
-      //gsl_vector_set(d, 0, 1.0);
-      //gsl_vector_set(e, 0, 0.0);
-      //gsl_vector_set(b, 0, 0.0);
-
-      // Absorbing at right.
-      //gsl_vector_set(f, n-2, 0.0);
-      //gsl_vector_set(d, n-1, 1.0);
-      //gsl_vector_set(b, n-1, 0.0);
-
-      // Interior nodes using a Crank-Nicholson approach.
-      // See: Numerical Methods Using Matlab 4th Ed. Mathews and Fink, pp. 561-562
-      // See: https://www.gnu.org/software/gsl/manual/html_node/Tridiagonal-Systems.html
+      // Interior
       for (int i = 1; i < n-1; i++) {
-	gsl_vector_set(d, i, 2.0 + 2.0*r[i] - ca[i]);
-	gsl_vector_set(f, i-1, cb[i] - r[i]);
-	gsl_vector_set(e, i, -(cb[i] + r[i]));
 	gsl_vector_set(b, i,
 		       (2.0 - 2.0*r[i] + ca[i])*gsl_vector_get(sol0, i)
 		       + (r[i] - cb[i])*gsl_vector_get(sol0, i-1)
@@ -167,7 +163,6 @@ public:
       // Solve the system of linear equations.
       gsl_linalg_solve_tridiag(d, e, f, b, sol);
     }
-
 	  
     // Copy the results into prob.
     for (int i = 0; i < n; i++) prob[i] = gsl_vector_get(sol, i);
@@ -181,9 +176,9 @@ public:
     gsl_vector_free(sol0);
   }
 
-  double conserveProb(double* sol, int len) const {
+  double conserveProb(double* sol) const {
     double sum = 0.0;
-    for (int i = 0; i < len; i++) sum += sol[i];
+    for (int i = 0; i < n; i++) sum += sol[i];
     double scale = 1.0/(sum*dx);
     //printf("scale %g\n", sum*dx);
     for (int i = 0; i < n; i++) sol[i] *= scale;
