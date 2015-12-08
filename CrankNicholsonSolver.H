@@ -102,19 +102,21 @@ public:
     gsl_vector* sol0 = gsl_vector_alloc(n); // a buffer to swap
 
     // Fill in the matrix.
-    int j;
     // Robin boundary conditions (zero flux).    
     // Left: Use the O(dx^2) forward finite difference.
-    j = 0;
-    double corrA = (cb[j]-r[j])/(3.0+2.0*driftA);
-    gsl_vector_set(d, j, 2.0 + 2.0*r[j] - ca[j] + 4.0*corrA);
-    gsl_vector_set(e, j, -(cb[j] + r[j] + corrA));
+    {
+      int i = 0;
+      double corrA = (cb[i]-r[i])/(3.0+2.0*driftA);
+      gsl_vector_set(d, i, 2.0 + 2.0*r[i] - ca[i] + 4.0*corrA);
+      gsl_vector_set(e, i, -(cb[i] + r[i] + corrA));
+    }
     // Right: Use the O(dx^2) backward finite difference.
-    j = n-1;
-    double corrB = -(cb[j]+r[j])/(3.0-2.0*driftB);
-    gsl_vector_set(d, j, 2.0 + 2.0*r[j] - ca[j] + 4.0*corrB);
-    gsl_vector_set(f, j-1, cb[j] - (r[j] + corrB));
-
+    {
+      int i = n-1;
+      double corrB = -(cb[i]+r[i])/(3.0-2.0*driftB);
+      gsl_vector_set(d, i, 2.0 + 2.0*r[i] - ca[i] + 4.0*corrB);
+      gsl_vector_set(f, i-1, cb[i] - (r[i] + corrB));
+    }
     // Interior nodes using a Crank-Nicholson approach.
     // See: Numerical Methods Using Matlab 4th Ed. Mathews and Fink, pp. 561-562
     // See: https://www.gnu.org/software/gsl/manual/html_node/Tridiagonal-Systems.html
@@ -123,6 +125,15 @@ public:
       gsl_vector_set(f, i-1, cb[i] - r[i]);
       gsl_vector_set(e, i, -(cb[i] + r[i]));
     }
+    
+    // Absorbing at left.
+    //gsl_vector_set(d, 0, 1.0);
+    //gsl_vector_set(e, 0, 0.0);
+    //gsl_vector_set(b, 0, 0.0);
+    // Absorbing at right.
+    //gsl_vector_set(f, n-2, 0.0);
+    //gsl_vector_set(d, n-1, 1.0);
+    //gsl_vector_set(b, n-1, 0.0);
 
     // Intialize the solution vector.
     for (int i = 0; i < n; i++) gsl_vector_set(sol, i, prob[i]);
