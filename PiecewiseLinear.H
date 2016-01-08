@@ -34,6 +34,24 @@ public:
     periodic = tab.periodic;
   }
   
+  PiecewiseLinear(const Piecewise1d& tab) {
+    n = tab.length();
+    dr = tab.getDr();
+    dl = tab.getDl();
+    r0 = tab.getR0();
+    r1 = tab.getR1();
+    periodic = tab.getPeriodic();
+    
+    v0 = new double[n];
+    v1 = new double[n];
+    err = new double[n];
+    for (int i = 0; i < n; i++) {
+      v0[i] = tab.get(i);
+      err[i] = tab.getErr(i);
+    }
+    interpolation();
+  }
+
   PiecewiseLinear(const double* dist, const double* pot, int n0, bool periodic0) {
     v0 = NULL;
     periodic = periodic0;

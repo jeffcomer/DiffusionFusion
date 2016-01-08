@@ -72,6 +72,26 @@ public:
     interpolation();
   }
 
+  PiecewiseCubic(double x0, double x1, const double* pot, int n0, bool periodic0) {
+    n = abs(n0);
+    r0 = x0;
+    r1 = x1;
+    dl = r1-r0;
+    dr = dl/n;
+    periodic = periodic0;
+    
+    v0 = new double[n];
+    v1 = new double[n];
+    v2 = new double[n];
+    v3 = new double[n];
+    err = new double[n];
+    for (int i = 0; i < n; i++) {
+      v0[i] = pot[i];
+      err[i] = 0.0;
+    }
+    interpolation();
+  }
+
   PiecewiseCubic(double x0, double x1, double pot0, int n0, bool periodic0) {
     n = abs(n0);
     r0 = x0;

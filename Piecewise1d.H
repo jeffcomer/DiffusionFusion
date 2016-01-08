@@ -403,6 +403,8 @@ public:
     return true;
   }
 
+  double nodePos(int i) const { return r0 + dr*i; }
+
 protected:
   // Integrate over cell j.
   // Validation done in integrate(x0,x1).

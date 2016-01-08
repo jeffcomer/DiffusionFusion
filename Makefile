@@ -4,7 +4,7 @@ ROOT=diffusionFusion
 default: gnu
 
 gnu:
-	g++ -O3 -Wall -march=native -mfpmath=sse $(ROOT).C -o $(ROOT) -lm -lgsl -lgslcblas -fopenmp
+	g++ -O3 -Wall -march=native -mfpmath=sse -DGSL_RANGE_CHECK_OFF -DHAVE_INLINE $(ROOT).C -o $(ROOT) -lm -lgsl -lgslcblas -fopenmp
 
 linux:
 	g++ -O3 -Wall -mfpmath=sse -DHAVE_INLINE $(ROOT).C -o $(ROOT)_LINUX -lm -lgsl -lgslcblas -fopenmp
@@ -68,3 +68,10 @@ smoldebug:
 
 crank:
 	g++ -I/opt/local/include -L/opt/local/lib -O3 -Wall -DHAVE_INLINE -DGSL_RANGE_CHECK_OFF doCrank.C -o doCrank -lm -lgsl -lgslcblas -fopenmp
+gamma:
+	g++ -I/opt/local/include -L/opt/local/lib -O3 -Wall -DHAVE_INLINE -DGSL_RANGE_CHECK_OFF gammaTest.C -o gammaTest -lm -lgsl -lgslcblas
+	g++ -I/opt/local/include -L/opt/local/lib -O3 -Wall -DHAVE_INLINE -DGSL_RANGE_CHECK_OFF gTest.C -o gTest -lm -lgsl -lgslcblas
+timefrac:
+	g++ -I/opt/local/include -L/opt/local/lib -O3 -Wall -DHAVE_INLINE -DGSL_RANGE_CHECK_OFF doTimeFracCrank.C -o doTimeFracCrank -lm -lgsl -lgslcblas -fopenmp
+timefrac_debug:
+	g++ -ggdb -Wall doTimeFracCrank.C -o doTimeFracCrank -lm -lgsl -lgslcblas -fopenmp

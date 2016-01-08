@@ -1,15 +1,15 @@
 ///////////////////////////////////////////////////////////////////////
 // Interface for a Smoluchowski equation solver
 // Author: Jeff Comer <jeffcomer at gmail>
-#ifndef CRANKNICHOLSONSOLVER_H
-#define CRANKNICHOLSONSOLVER_H
+#ifndef CRANKNICHOLSONSOLVER1_H
+#define CRANKNICHOLSONSOLVER1_H
 
 #include "Piecewise1d.H"
 #include <omp.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_linalg.h>
 
-class CrankNicholsonSolver {
+class CrankNicholsonSolver1 {
 private:
   int n;
   double dx, x0, x1;
@@ -18,7 +18,7 @@ private:
   double beta;
 
 public:
-  CrankNicholsonSolver(const Piecewise1d* refField, double timestep0, double kT) {
+  CrankNicholsonSolver1(const Piecewise1d* refField, double timestep0, double kT) {
     n = refField->length();
     dx = refField->getDr();
     x0 = refField->getR0();
@@ -30,11 +30,11 @@ public:
 
   int length() const { return n; }
 
-  void init(double* prob, int node) const {
+  void init(Piecewise1d* prob, int node) const {
     // Zero the initial distribution.
-    for (int i = 0; i < n; i++) prob[i] = 0.0;
+    prob->zero();
     // Add the delta function at the initial point.
-    prob[node] = 1.0/dx;
+    prob->set(node, 1.0/dx);
   }
 
   double gaussianReflect(double x, double mu, double sigma) const {
@@ -47,11 +47,12 @@ public:
   //   init(prob,node,dx);
   // }
 
-  void init(double* prob, int node, double width) const {
-    for (int i = 0; i < n; i++) prob[i] = gaussianReflect(dx*i+x0, dx*node+x0, width);
+  void init(Piecewise1d* prob, double x, double width) const {
+    for (int i = 0; i < n; i++)
+      prob->set(i, gaussianReflect(prob->nodePos(i), x, width));
   }
 
-  void solve(double* prob, int steps, const Piecewise1d* diffuse, const Piecewise1d* force, const Piecewise1d* bias) const {
+  void solve(Piecewise1d* prob, int steps, const Piecewise1d* diffuse, const Piecewise1d* force, const Piecewise1d* bias) const {
     // Coefficients contain the diffusion and drift effects.
     double ca[n];
     double cb[n];
@@ -151,7 +152,7 @@ public:
     //gsl_vector_set(b, n-1, 0.0);
 
     // Intialize the solution vector.
-    for (int i = 0; i < n; i++) gsl_vector_set(sol, i, prob[i]);
+    for (int i = 0; i < n; i++) gsl_vector_set(sol, i, prob->get(i));
 
     for (int s = 0; s < steps; s++) {
       // Swap the pointers.
@@ -191,9 +192,7 @@ public:
     }
 	  
     // Copy the results into prob.
-    for (int i = 0; i < n; i++) {
-       prob[i] = gsl_vector_get(sol, i);
-    }
+    for (int i = 0; i < n; i++) prob->set(i, gsl_vector_get(sol, i));
 
     // Deallocate everything.
     gsl_vector_free(d);
@@ -204,32 +203,21 @@ public:
     gsl_vector_free(sol0);
   }
 
-  double conserveProb(double* sol) const {
-    double sum = 0.0;
-    for (int i = 0; i < n; i++) sum += sol[i];
-    double scale = 1.0/(sum*dx);
-    //printf("scale %g\n", sum*dx);
-    for (int i = 0; i < n; i++) sol[i] *= scale;
+  double conserveProb(Piecewise1d* sol) const {
+    double sum = sol->integrate(sol->getR0(), sol->getR1());
+    double scale = 1.0/sum;
+    sol->scale(scale);
     return scale;
   }
 
-  double conserveProb(Piecewise1d& sol) const {
-    double sum = 0.0;
-    for (int i = 0; i < sol.length(); i++) sum += sol.get(i);
-    double scale = 1.0/(sum*sol.getDr());
-    //printf("scale %g\n", sum*sol.getDr());
-    sol.scale(scale);
-    return scale;
-  }
-
-  int positive(double* sol) const {
-    for (int i = 0; i < n; i++) {
-      if (sol[i] < -0.5/dx) return i;
+  int positive(Piecewise1d* sol) const {
+    for (int i = 0; i < sol->length(); i++) {
+      if (sol->get(i) < -0.5/dx) return i;
     }
     return -1;
   }
 
-  ~CrankNicholsonSolver() {
+  ~CrankNicholsonSolver1() {
   }
 };
 
