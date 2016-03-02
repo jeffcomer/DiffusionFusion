@@ -29,15 +29,15 @@
 #include "TrajComer2d.H"
 #include "TrajReflect.H"
 #include "TrajReflect2d.H"
-#include "TrajSmolCrankBias.H"
 #include "TrajSmolCrank.H"
+#include "TrajSmolCrankBias.H"
 #include "TrajFracSmolCrank.H"
-#include "TrajSmolCrank1.H"
 #include "TrajFracSmolCrankDual.H"
 #include "TrajSmolCrankDual.H"
 
 // Mostly experimental
-#include "TrajFractional.H"
+#include "TrajSmolCrank1.H"
+#include "TrajFoxFunction.H"
 #include "TrajComerPmf2d.H"
 #include "TrajLangevin.H"
 #include "TrajLangevinExp.H"
@@ -45,10 +45,6 @@
 #include "TrajLangevinGamma.H"
 #include "TrajComerLog.H"
 #include "TrajTurkcan.H"
-#include "TrajIntegral.H"
-#include "TrajIntegralForce.H"
-#include "TrajIntegralLog.H"
-#include "TrajIntegralForceOrder.H"
 #include "TrajComer2d2d.H"
 #include "TrajComerPmf2d2d.H"
 #include "TrajComer2d2d2d.H"
@@ -56,12 +52,7 @@
 #include "TrajSimpleSmol.H"
 #include "TrajSimpleSmolReflect.H"
 #include "TrajSmolReflectBias.H"
-#include "TrajBallChain.H"
 #include "TrajNoise.H"
-//#include "TrajMobility.H"
-//#include "TrajCylinder.H"
-//#include "TrajCylinderAxial.H"
-//#include "TrajCylinderRadial.H"
 
 struct TrajFile {
 public:
@@ -379,7 +370,7 @@ public:
     fprintf(stdout, "\t*Note: -global permits parameters that affect all nodes.\n");
     fprintf(stdout, "\nprior scale|known|smooth field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension] [-start startingFieldIndex] [-end endingFieldIndex]\n");
     fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -tol relErrMax -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
-    fprintf(stdout, "\ntrajCost ccg|ccgPmf|ballchain|ccg2d|reflect|reflect2d|langevinExp|smoluchowski|simpleSmol|reflectSmol|smolCrankBias|smolCrank|smolCrank1|fracSmolCrank field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-timestep timestep] [-hop maxHop] [-dim primaryDimension]\n");
+    fprintf(stdout, "\ntrajCost ccg|ccgPmf|ccg2d|reflect|reflect2d|smolCrank|smolCrankBias|fracSmolCrank|smolCrankDual|fracSmolCrankDual|langevinExp|smoluchowski|simpleSmol|reflectSmol field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-timestep timestep] [-hop maxHop] [-dim primaryDimension]\n");
     fprintf(stdout, "\ndump events|fields|distro|best|eventCost|bias dumpFile\n");
     fprintf(stdout, "\t*Note: A '%%' in dumpFile is substituted with 'output'.\n");
   }
@@ -1428,8 +1419,8 @@ private:
        trajCostList[tc] = new TrajReflect((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "noise") {
        trajCostList[tc] = new TrajNoise((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-    } else if (type == "fractional") {
-       trajCostList[tc] = new TrajFractional((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+    } else if (type == "foxFunc") {
+       trajCostList[tc] = new TrajFoxFunction((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccgLog") {
       trajCostList[tc] = new TrajComerLog((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "langevin" || type == "bbkPmf") {
@@ -1463,8 +1454,6 @@ private:
        trajCostList[tc] = new TrajComerPmf2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "ccg2d2d2d") {
        trajCostList[tc] = new TrajComer2d2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-    } else if (type == "ballchain") {
-       trajCostList[tc] = new TrajBallChain((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
     } else if (type == "smoluchowski") {
       if (timestep < 0.0) {
 	fprintf(stderr,"ERROR: trajCost smoluchowski requires a timestep. Add '-timestep' to the trajCost command.\n");
@@ -1525,26 +1514,6 @@ private:
 	exit(-1);
       }
       trajCostList[tc] = new TrajFracSmolCrankDual((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, timestep, maxHop);
-    } else if (type == "integral") {
-      trajCostList[tc] = new TrajIntegral((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
-      if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegral is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
-    } else if (type == "integralForce") {
-      trajCostList[tc] = new TrajIntegralForce((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
-      if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegralForce is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
-    } else if (type == "integralLog") {
-      trajCostList[tc] = new TrajIntegralLog((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
-      if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegralLog is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
-    } else if (type == "integralForceOrder") {
-      trajCostList[tc] = new TrajIntegralForceOrder((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, blockLen);
-      if (blockLen < 2) fprintf(stderr,"Warning: TrajIntegralForceOrder is meant to be used with blocked data that can be integrated. Unless you are doing testing, add '-block' to the trajectory command.\n");
-      //    } else if (type == "ccgCyl" || type == "cylinder") {
-      //trajCostList[tc] = new TrajCylinder((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, trajVarNum);
-    // } else if (type == "mobility") {
-    //   trajCostList[tc] = new TrajMobility((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, trajVarNum);
-    // } else if (type == "ccgCylX" || type == "cylinderx" || type == "ccgCylAx") {
-    //   trajCostList[tc] = new TrajCylinderAxial((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, trajVarNum);
-    // } else if (type == "ccgCylRad") {
-    //   trajCostList[tc] = new TrajCylinderRadial((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, trajVarNum);
     } else {
       fprintf(stderr, "ERROR trajCost: Unrecognized type `%s'\n", type.cs());
       printUsage();
