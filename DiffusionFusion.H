@@ -133,12 +133,6 @@ private:
   int biasFieldNum;
   const Piecewise1d** biasFieldList;
 
-  // Variables for forming blocks.
-  // This was done for some experimental TrajCostComputers that didn't work.
-  int blockLen;
-  int blockNum;
-  int blockInd;
-
   // List of events.
   int eventMax; // capacity
   int eventNum;
@@ -179,7 +173,7 @@ private:
   String dumpFile[dumpTypeNum];
 
 public:
-  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), dispFileMax(30), biasHistoryList(NULL), totalTrajFileNum(0), biasFieldNum(0), biasFieldList(NULL), blockNum(0), blockInd(0), eventMax(1), eventNum(0), event(NULL), fieldNum(0), fieldList(NULL), priorNum(0), priorList(NULL), rando(NULL), monte(NULL), mcCycles(0), trajCostList(NULL) {
+  DiffusionFusion(const String& cmdFile, const String& outPreCmdLine) : cmdNum(0), cmdList(NULL), trajVarNum(0), dispFileMax(30), biasHistoryList(NULL), totalTrajFileNum(0), biasFieldNum(0), biasFieldList(NULL), eventMax(1), eventNum(0), event(NULL), fieldNum(0), fieldList(NULL), priorNum(0), priorList(NULL), rando(NULL), monte(NULL), mcCycles(0), trajCostList(NULL) {
     // Read the configuration file.
     cmdNum = countLines(cmdFile.cs(), IndexList(0));
     cmdList = new CommandLineReader*[cmdNum];
@@ -305,7 +299,6 @@ public:
 
     // Output trajectory information.
     printEventStats();
-    if (blockLen > 1) printBlockStats();
     if (dumpFile[dumpEvents].length() > 0) writeEvents(dumpFile[dumpEvents]);
     // We assume that the relevant coordinate is 0.
     if (dumpFile[dumpBias].length() > 0) writeBiases(dumpFile[dumpBias], 0);
@@ -363,9 +356,8 @@ public:
 
   static void printUsage() {
     fprintf(stdout, "Command usage:\n\n");
-    fprintf(stdout, "trajectory [-time varName -col colInd] [-coor varName -col colInd] [-force varName -col colInd] [-block blockLen]...\n");
+    fprintf(stdout, "trajectory [-time varName -col colInd] [-coor varName -col colInd] [-force varName -col colInd]...\n");
     fprintf(stdout, "\t*Note: Replacing the column index with a period `.' makes a variable of all zeros.\n");
-    fprintf(stdout, "\t*Note: Organizing the data into contiguous blocks, as effected by -block, is useful for intergral methods.\n");
     fprintf(stdout, "\t*Note: An important restriction is that the coordinates must be given in the order of the axes of the fields.");
     fprintf(stdout, "\t e.g., the first -coor is assumed to the primary direction in all fields.\n");
     fprintf(stdout, "\nload trajFile [-stride dataStride] [-skip eventSkip] [-minVar colName -minVal val] [-maxVar colName -maxVal val] [-scaleVar colName -scaleVal val] [-periodicVar col -periodicMin qMin -periodicMax qMax] [-pos init|mid|final] [-bias biasHistoryFile] [-biasSmooth width] [-biasCount biasCountHistoryFile] [-biasFullSamples fullSamples]\n");
@@ -734,7 +726,6 @@ public:
 private:
   // Read the trajectory variables.
   void prepareTrajectory(const CommandLineReader& cmd) {
-    blockLen = 1;
     trajVarNum = cmd.getOptionNum()/2;
     printf("There are %d trajectory variables.\n", trajVarNum);
     trajVarName = new String[trajVarNum];
@@ -782,9 +773,6 @@ private:
 	  forceCol.add(col);
 	}
 	o++; // We already did the next option.
-      } else if (opt == "block") {
-	// Set the cycle length.
-	blockLen = atoi(val);
       } else {
 	fprintf(stderr, "ERROR trajectory: Unrecognized option `%s'\n", opt.cs());
 	exit(-1);
@@ -1008,16 +996,6 @@ private:
       }
     }
 
-    // Block the data?
-    // This was done for some experimental TrajCostComputers that didn't work.
-     // Keep only complete blocks.
-    if (blockLen != 1) {
-      printf("There are %d events before blocking.\n", eventNum);
-      blockEvents();
-      printf("Kept %d complete event blocks of block length %d\n", blockNum, blockLen);
-      printf("There are %d events after blocking.\n", eventNum);
-    }
-
     for (int f = 0; f < fileNum; f++) delete fileList[f].filter;
     delete[] fileList;
     delete[] eventFileList;
@@ -1125,8 +1103,6 @@ private:
   // readTrajFile() also fills the event buffer and applies the filters.
   // filesList isn't const because we set eventFirst and eventLast.
   void loadAll(TrajFile* fileList, int fileNum, const String* eventFileList, const int* eventFileSkip, const int* eventFileOffset, int eventFileNum) {
-    // Count the number of possible events.
-    blockInd = 0;
     eventMax = 1;
     printf("\nCounting file lines:\n");
     for (int f = 0; f < fileNum; f++) {
@@ -1548,8 +1524,6 @@ private:
     if (timestep > 0.0) printf("  timestep %.15g\n", timestep);
 
     printf("  leastLocalField %d \"%s\" \n", leastLocal, fieldDesc[leastLocal].name.cs());
-    if (type == "integral") 
-      printf("  blockLen %d\n", blockLen);
     printf("\n");
 
     // Fill the array to know which fields are relevant.
@@ -2020,7 +1994,6 @@ private:
     int read = -1;
     int ln = 0;
     int eventCounter = 0;
-    int blockCounter = -1;
     int serial = 0;
 
     /////
@@ -2041,15 +2014,6 @@ private:
 	continue;
       }
       
-      // blockCounter is the count of valid strided entries.
-      blockCounter++;
-      if (blockCounter >= blockLen) {
-	blockInd++;
-	blockCounter = 0;
-      }
-
-      // Set some organizational parameters for the event.
-      event[eventNum].block = blockInd;
       // Serial tells you how far through the file we are--which
       // can be used to determine the closest bias field in the history file.
       event[eventNum].serial = serial;
@@ -2145,62 +2109,8 @@ private:
       }
     }
     fclose(inp);
-    // Break the block between files.
-    blockInd++;
 
     return serial;
-  }
-
-  // Remove series of events that do not conform to the block structure.
-  void blockEvents() {
-    int currBlock = -1;
-    int currCount = 0;
-    int en = 0;
-    int newBlockNum = 0;
-    for (int e = 0; e < eventNum; e++) {
-      if (event[e].block != currBlock || currBlock == -1) {
-	// New block.
-	// When block numbers are unset (-1), blocks of size 1 are formed.
-	// Was the last block a complete?
-	// Try to get the largest number of complete blocks,
-	// allowing the block number to be greater than blockLen
-	int readBlocks = currCount/blockLen;
-	if (readBlocks > 0) {
-	  // These blocks is complete.
-	  // Slide them down in the event buffer, possibly overwriting incomplete blocks.
-	  int contigEvents = readBlocks*blockLen;
-	  for (int i = 0; i < contigEvents; i++) {
-	    event[en] = event[e-currCount+i];
-	    en++;
-	  }
-	  newBlockNum++;
-	}
-	
-	currBlock = event[e].block;
-	currCount = 0;
-      }
-      currCount++;
-
-      //printf("block %d current count %d\n", event[e].block, currCount);
-    }
-
-    // Try to keep the last blocks.
-    int readBlocks = currCount/blockLen;
-    if (readBlocks > 0) {
-      // These blocks is complete.
-      // Slide them down in the event buffer, possibly overwriting incomplete blocks.
-      int e = eventNum;
-      int contigEvents = readBlocks*blockLen;
-      for (int i = 0; i < contigEvents; i++) {
-	event[en] = event[e-currCount+i];
-	en++;
-      }
-      newBlockNum++;
-    }
-    // The new number of events.
-    eventNum = en;
-
-    blockNum = newBlockNum;
   }
 
   static int readFileFile(const char* fileFile, String* fileList, int readMax) {
@@ -2273,9 +2183,6 @@ private:
 	  event[eventNum].del[v] = strtod(tokenList[3*v+1].cs(),NULL);
 	  event[eventNum].del0[v] = strtod(tokenList[3*v+2].cs(),NULL);
 	}
-	if (numTokens == trajVarNumThree+1) event[eventNum].block = atoi(tokenList[trajVarNumThree].cs());
-	else event[eventNum].block = eventNum;
-	event[eventNum].block = eventNum/blockLen;
 	eventNum++;
       }
       e++;
@@ -2307,7 +2214,6 @@ public:
       for (int v = 0; v < trajVarNum; v++) {
 	fprintf(out, "%.14g %.14g %.14g ", event[e].var[v], event[e].del[v], event[e].del0[v]);
       }
-      //fprintf(out, "%d\n", event[e].block);
       fprintf(out, "%d\n", event[e].bias);
     }
 
@@ -2384,60 +2290,9 @@ public:
     }
   }
 
-  void printBlockStats() {
-    const int n = blockNum;
-
-    printf("\nBLOCK STATISTICS\n");
-    printf("BLOCKNUM %d\n", n);
-    if (n == 0) return;
-
-    for (int v = 0; v < trajVarNum; v++) {
-      // Initialize the statistics for the first block.
-      double delMin = -1;
-      double delMax = -1;
-      double delSum = 0.0;
-      double delSumSq = 0.0;
-      double mean, std;
-
-      // Collect the statistics.
-      for (int b = 0; b < n; b++) {
-	int e0 = b*blockLen;
-
-	// Calculate the block sums.
-	double blockDelSum = 0.0;
-	for (int eb = 0; eb < blockLen; eb++) {
-	  int e = e0 + eb;
-	  //printf("%d %d\n", b, e);
-	  blockDelSum += event[e].del[v];
-	}
-
-	// Min and max.
-	if (b == 0) {
-	  delMin = blockDelSum;
-	  delMax = blockDelSum;
-	} else {
-	  if (blockDelSum < delMin) delMin = blockDelSum;
-	  if (blockDelSum > delMax) delMax = blockDelSum;
-	}
-
-	// For the mean and std.
-	delSum += blockDelSum;
-	delSumSq += blockDelSum*blockDelSum;
-      }
-
-      printf("  DELTA %s", trajVarName[v].cs());
-      mean = delSum/n;
-      std = sqrt( (delSumSq - delSum*delSum/n)/(n-1) );
-      printf(" min %.6g", delMin);
-      printf(" max %.6g", delMax);
-      printf(" mean %.6g", mean);
-      printf(" std %.6g\n", std);
-    }
-  }
-
   void writeGtDistro(const String& fileName) {
     for (int tc = 0; tc < trajCostNum; tc++) {
-      // Get the gt value for each event (or event block).
+      // Get the gt value for each event.
       int n = trajCostList[tc]->unitNum();
       double* gt = new double[n];
       for (int e = 0; e < n; e++) {

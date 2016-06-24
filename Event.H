@@ -19,12 +19,12 @@ public:
   double var[varMax]; // variable value
   double del[varMax]; // difference in variable
   double del0[varMax]; // last difference in variable
-  int block; // the block number
   int serial; // where does the event lie in the input file?
   int bias; // link to bias field
+  int group; // events can be assigned group numbers
   
   // Organizational parameters put in an unset state.
-  Event() : block(-1), serial(-1), bias(-1) {}
+  Event() : serial(-1), bias(-1), group(0) {}
 };
 
 #endif

@@ -34,7 +34,6 @@ protected:
   const int leastLocalNodes;
   int trajVarMin;
   int* eventIndList;
-  int blockLen;
   // Each node of each field has events associated with it.
   LocalCost* local;
 
@@ -47,7 +46,7 @@ public:
 
 public:  
   TrajCostComputer(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocalFieldInd, int trajVarMin0)
-    : beta(1.0/kt), fieldList(ppf), tcFieldNum(fieldSel0.length()), fieldSel(fieldSel0), eventNum(eventNum0), event(event0), leastLocalField(ppf[leastLocalFieldInd]), leastLocalNodes(leastLocalField->length()), trajVarMin(trajVarMin0), blockLen(1) {
+    : beta(1.0/kt), fieldList(ppf), tcFieldNum(fieldSel0.length()), fieldSel(fieldSel0), eventNum(eventNum0), event(event0), leastLocalField(ppf[leastLocalFieldInd]), leastLocalNodes(leastLocalField->length()), trajVarMin(trajVarMin0) {
     if (tcFieldNum == 0) {
       fprintf(stderr, "ERROR TrajCostComputer must act on at least one field.\n");
       exit(-1);
@@ -57,24 +56,6 @@ public:
     eventIndList = new int[trajVarMin];
     for (int i = 0; i < trajVarMin; i++) eventIndList[i] = 0;
   }
-
-  TrajCostComputer(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocalFieldInd, int trajVarMin0, int blockLen0)
-    : beta(1.0/kt), fieldList(ppf), tcFieldNum(fieldSel0.length()), fieldSel(fieldSel0), eventNum(eventNum0), event(event0), leastLocalField(ppf[leastLocalFieldInd]), leastLocalNodes(leastLocalField->length()), trajVarMin(trajVarMin0), blockLen(blockLen0) {
-    if (tcFieldNum == 0) {
-      fprintf(stderr, "ERROR TrajCostComputer must act on at least one field.\n");
-      exit(-1);
-    }
-
-    if (blockLen < 1) {
-      fprintf(stderr, "ERROR TrajCostComputer::blockLen must be at least 1.\n");
-      exit(-1);
-    }
-    
-    initLocal();
-    eventIndList = new int[trajVarMin];
-    for (int i = 0; i < trajVarMin; i++) eventIndList[i] = 0;
-  }
-
 
   virtual ~TrajCostComputer() {
     // I'm not sure why we were deallocating event here, it's owned by DiffusionFusion.
@@ -122,23 +103,14 @@ public:
   
   double getKt() const { return 1.0/beta; }
   int getNodes() const { return leastLocalNodes; }
-  // This is usually the number of events, but can
-  // be overloaded to the number of blocks.
+  // This is usually the number of events, but can be overloaded.
   virtual int unitNum() const { return eventNum; }
 
-  static bool nanCheck(double cost, char unitType, int index, double disp, double mean, double mean1, double var) {
+  static bool nanCheck(double cost, int index, double disp, double mean, double mean1, double var) {
     if (cost != cost) {
       fprintf(stdout,"WARNING cost NaN\n");
 
-      switch(unitType) {
-      case 'e':
-	fprintf(stdout,"NAN event %d disp %g frc %g gradDif %g dif %g\n",index,disp,mean,mean1,var);
-	break;
-      case 'b':
-	fprintf(stdout,"NAN block %d disp %g mean %g var %g\n",index,disp,mean,var);
-	break;
-
-      }
+      fprintf(stdout,"NAN event %d disp %g frc %g gradDif %g dif %g\n",index,disp,mean,mean1,var);
       return false;
     }
     return true;
