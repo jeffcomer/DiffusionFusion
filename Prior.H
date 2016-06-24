@@ -46,7 +46,6 @@ public:
 
   ~Prior() {
     if (refField != NULL) delete refField;
-    if (coupleField != NULL) delete coupleField;
   }
 
 
