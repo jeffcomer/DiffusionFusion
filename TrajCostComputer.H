@@ -48,7 +48,7 @@ public:
   double gtVar; // sigma^2
 
 public:  
-  TrajCostComputer(TrajCostDesc& tcd, int trajVarMin0)
+  TrajCostComputer(const TrajCostDesc& tcd, int trajVarMin0)
     : beta(1.0/tcd.kbt), fieldList((const Field**)tcd.fieldList), fieldSel(tcd.fieldSel),
       event(tcd.event), leastLocalField(fieldList[tcd.leastLocal]), trajVarMin(trajVarMin0) {
     if (fieldSel.length() == 0) {
@@ -67,8 +67,8 @@ public:
       eventStart = -1;
       eventEnd = -1;
       for (int e = 0; e < tcd.eventNum; e++) {
-	if (eventStart < -1 && event[e].group == group) eventStart = e;
-	if (eventStart != -1 && event[e].group != group) eventEnd = e-1;
+	if (eventStart == -1 && event[e].group == group) eventStart = e;
+	if (eventStart != -1 && eventEnd == -1 && event[e].group != group) eventEnd = e-1;
 
 	if (eventEnd != -1 && event[e].group == group) {
 	  fprintf(stderr, "ERROR TrajCostComputer Events with the same group number must be contiguous.\n");
@@ -83,6 +83,7 @@ public:
 	fprintf(stderr, "ERROR TrajCostComputer No events with -group %d\n", group);
 	exit(-1);
       }
+      //fprintf(stderr,"event start %d end %d\n", eventStart, eventEnd);
     }
         
     initLocal();

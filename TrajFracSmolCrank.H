@@ -39,7 +39,7 @@ private:
   TimeFracCrankSolver* solver;
   
 public:
-  TrajFracSmolCrank(TrajCostDesc& tcd) :
+  TrajFracSmolCrank(const TrajCostDesc& tcd) :
     TrajCostComputer(tcd,2), timestep(tcd.timestep), maxHop(tcd.maxHop) {
 
     if (fieldSel.length() != 3) {
@@ -93,7 +93,7 @@ public:
     }
 
     // Check the event delT.
-    delT = event[0].del[T];
+    delT = event[eventStart].del[T];
     for (int e = eventStart; e <= eventEnd; e++) {
       double d = fabs(delT - event[e].del[T])/delT;
        if (d > 0.1) {

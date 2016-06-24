@@ -38,7 +38,7 @@ private:
   CrankNicholsonSolver* solver;
   
 public:
-  TrajSmolCrank(TrajCostDesc& tcd) :
+  TrajSmolCrank(const TrajCostDesc& tcd) :
     TrajCostComputer(tcd,2), timestep(tcd.timestep), maxHop(tcd.maxHop) {
 
     if (fieldSel.length() != 2) {
@@ -64,7 +64,7 @@ public:
 
     refField = dynamic_cast<const Piecewise1d*>(leastLocalField); // defined in TrajCostComputer
     if (refField == NULL) {
-      fprintf(stderr,"ERROR trajCost SmolCrank requires leastLocalField type linear or cubic.\n");
+      fprintf(stderr,"ERROR trajCost smolCrank requires leastLocalField type linear or cubic.\n");
       exit(-1);
     }
 
@@ -87,17 +87,17 @@ public:
     }
 
     // Check the event delT.
-    delT = event[0].del[T];
+    delT = event[eventStart].del[T];
     for (int e = eventStart; e <= eventEnd; e++) {
       double d = fabs(delT - event[e].del[T])/delT;
-       if (d > 0.1) {
+       if (d > 0.01) {
 	 fprintf(stderr,"event 0 del[T] %.15g event %d del[T] %.15g\n", delT, e, event[e].del[T]);
-	 fprintf(stderr,"ERROR trajCost SmolCrank requires all delta time to be the same.\n");
+	 fprintf(stderr,"ERROR trajCost smolCrank requires all delta time to be the same.\n");
 	 exit(-1);
        }
        if (d > 1e-6) {
 	 fprintf(stderr,"event 0 del[T] %.15g event %d del[T] %.15g\n", delT, e, event[e].del[T]);
-	 fprintf(stderr,"Warning trajCost SmolCrank requires all delta time to be the same.\n");
+	 fprintf(stderr,"Warning trajCost smolCrank requires all delta time to be the same.\n");
        }
     }
     steps = int(ceil(delT/timestep));
@@ -123,7 +123,7 @@ public:
   void eventVarShortcuts() {
     T = eventIndList[0];
     X = eventIndList[1];
-    for (int i = 0; i < 2; i++) printf("eventIndList[%d] = %d\n", i, eventIndList[i]);
+    //for (int i = 0; i < 2; i++) printf("eventIndList[%d] = %d\n", i, eventIndList[i]);
   }
    // Event variables.
   String eventVarName(int ind) const {

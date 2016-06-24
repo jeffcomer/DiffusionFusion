@@ -27,7 +27,7 @@ private:
   int T, X, D, FB;
 
 public:
-  TrajComer(TrajCostDesc& tcd) :
+  TrajComer(const TrajCostDesc& tcd) :
     TrajCostComputer(tcd, 4) {
 
     if (fieldSel.length() != 2) {

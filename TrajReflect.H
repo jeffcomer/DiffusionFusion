@@ -29,7 +29,7 @@ private:
   double bound1;
 
 public:
-  TrajReflect(TrajCostDesc& tcd) :
+  TrajReflect(const TrajCostDesc& tcd) :
     TrajCostComputer(tcd, 4) {
 
     if (fieldSel.length() != 2) {

@@ -1572,9 +1572,9 @@ private:
     printf("  events %d\n", trajCostList[tc]->getEventNum());
 
     printf("  kT %.15g\n", trajCostList[tc]->getKt());
-    if (tcd.dimension > 0) printf("  dimension %d\n", tcd.dimension);
-    if (tcd.timestep > 0.0) printf("  timestep %.15g\n", tcd.timestep);
-    if (tcd.group > 0.0) printf("  group %d\n", tcd.group);
+    if (tcd.dimension >= 0) printf("  dimension %d\n", tcd.dimension);
+    if (tcd.timestep >= 0.0) printf("  timestep %.15g\n", tcd.timestep);
+    if (tcd.group >= 0) printf("  group %d\n", tcd.group);
 
     printf("  leastLocalField %d \"%s\" \n", tcd.leastLocal, fieldDesc[tcd.leastLocal].name.cs());
     printf("\n");
@@ -2040,6 +2040,7 @@ private:
     for (int i = 1; i < columns; i++)
       if (colList.get(i) > maxColumn) maxColumn = colList.get(i);
 
+    //printf("%s group %d\n", traj.fileName.cs(), traj.group);
 
     char line[STRLEN];
     double varLast[Event::varMax];
