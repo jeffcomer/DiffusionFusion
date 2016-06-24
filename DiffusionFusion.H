@@ -379,7 +379,7 @@ public:
     fprintf(stdout, "\nfield fieldName fieldType -step mcStep [-f initialFileName] [-periodic true|false] [-n numEntries] [-fixed fixedNodeFile] [-init initialValue] [-minVal val] [-maxVal val] [-var colName] [-err errorFile] [-outPmf force|prob] [-global true|false]\n");
     fprintf(stdout, "\t*Note: -outPmf force|prob allows you to write the negative integral\n\t\tor -kT log(prob), respectively, in addition writing the\n\t\tfield in the normal way.\n");
     fprintf(stdout, "\t*Note: -global permits parameters that affect all nodes.\n");
-    fprintf(stdout, "\nprior scale|known|smooth field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension] [-start startingFieldIndex] [-end endingFieldIndex]\n");
+    fprintf(stdout, "\nprior scale|known|smooth|couple field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension] [-start startingFieldIndex] [-end endingFieldIndex] [-couple coupleField] [-std coupleStd] \n");
     fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -tol relErrMax -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
     //fprintf(stdout, "\ntrajCost ccg|ccgPmf|ccg2d|reflect|reflect2d|smolCrank|smolCrankBias|fracSmolCrank|smolCrankDual|fracSmolCrankDual|langevinExp|smoluchowski|simpleSmol|reflectSmol field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-timestep timestep] [-hop maxHop] [-dim primaryDimension] [-group group]\n");
 
@@ -1691,6 +1691,7 @@ private:
 
     double uniformErr = -1.0;
     String refFieldName;
+    String coupleFieldName;
 
     switch(priorList[pi]->getType()) {
 
@@ -1773,6 +1774,48 @@ private:
       }
 
       break;
+
+ // Known field prior.
+    case Prior::coupleType:
+      for (int o = 0; o < cmdLine.getOptionNum(); o++) {
+	String opt(cmdLine.getOption(o));
+	String val(cmdLine.getOptionValue(o));
+	
+	if (opt == "couple") {
+	  int f;
+	  for (f = 0; f < fieldNum; f++) if (fieldDesc[f].name == val) break;
+	  if (f == fieldNum) {
+	    fprintf(stderr, "ERROR 'prior couple -couple' Could not find field with name `%s'.\n", val.cs());
+	    printUsage();
+	    exit(-1);
+	  }
+	  coupleFieldName = val;
+	  priorList[pi]->setCoupleField(fieldList[f], f);
+	} else if (opt == "std") {
+	  priorList[pi]->setCoupleStd(strtod(val,NULL));
+	} else if (opt == "start") {
+	  if ( !priorList[pi]->setStartIndex(atoi(val)) ) 
+	    fprintf(stderr,"ERROR `prior couple' (%d): Index %s outside of field bounds\n", pi, val.cs());
+	} else if (opt == "end") {
+	  if ( !priorList[pi]->setEndIndex(atoi(val)) ) 
+	    fprintf(stderr,"ERROR `prior couple' (%d): Index %s outside of field bounds\n", pi, val.cs());
+	} else {
+	  fprintf(stderr, "ERROR 'prior couple' Unrecognized option `%s'.\n", opt.cs());
+	  exit(-1);
+	}
+      }
+
+      if (priorList[pi]->getCoupleStd() < 0.0) {
+	fprintf(stderr,"ERROR `prior couple' (%d) must include `-std'\n", pi);
+	exit(-1);
+      }
+
+
+      if (!priorList[pi]->hasCoupleField()) {
+	fprintf(stderr, "ERROR 'prior couple' must specify a field to couple to '-couple'.\n");
+	exit(-1);
+      }
+      break;
     }
 
     printf("  prior %s %s", priorList[pi]->getTypeName().cs(), fieldDesc[priorList[pi]->getFieldId()].name.cs());
@@ -1787,6 +1830,10 @@ private:
     if (priorList[pi]->hasRefField()) {
       text.add(" referenceField ");
       text.add(refFieldName);
+    }
+    if (priorList[pi]->hasCoupleField()) {
+      text.add(" coupleField ");
+      text.add(coupleFieldName);
     }
     printf("%s\n",text.cs());
 

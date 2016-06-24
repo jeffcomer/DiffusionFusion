@@ -25,10 +25,14 @@ class Prior {
   int gradDim;
   double gradVar;
   int startIndex, endIndex;
+  const Field* coupleField;
+  int coupleFieldId;
+  double coupleVar;
 
 public:
   Prior(String typeName, const Field* field0, int fieldId0) :
-    field(field0), type(-1), fieldId(fieldId0), refField(NULL),  gradDim(0), gradVar(-1.0) {
+    field(field0), type(-1), fieldId(fieldId0), refField(NULL),  gradDim(0), gradVar(-1.0),
+    coupleField(NULL), coupleVar(-1.0) {
 
     startIndex = 0;
     endIndex = field->length() - 1;
@@ -42,7 +46,21 @@ public:
 
   ~Prior() {
     if (refField != NULL) delete refField;
+    if (coupleField != NULL) delete coupleField;
   }
+
+
+  void setCoupleField(const Field* couple, int coupleFieldId0) {
+    if (coupleField != NULL) delete coupleField;
+
+    coupleField = couple;
+    if (coupleField->length() != field->length()) {
+      fprintf(stderr,"ERROR prior::setCoupleField coupleField does not have the same number of nodes as field %d\n", fieldId);
+      exit(-1);
+    }
+    coupleFieldId = coupleFieldId0;
+  }
+
 
   void setRefField(const Field* ref) {
     if (refField != NULL) delete refField;
@@ -89,6 +107,7 @@ public:
   int getType() { return type; }
   String getTypeName() { return name(type); }
   bool hasRefField() { return refField != NULL; }
+  bool hasCoupleField() { return coupleField != NULL; }
   
   void setGradDim(int gradDim0) { gradDim=gradDim0; }
   void setGradStd(double gradStd0) {
@@ -101,14 +120,23 @@ public:
     return sqrt(gradVar);
   }
 
+  void setCoupleStd(double coupleStd) {
+    if (coupleStd >= 0) coupleVar = coupleStd*coupleStd;
+  }
+  double getCoupleStd() const {
+    if (coupleVar < 0.0) return -1.0;
+    return sqrt(coupleVar);
+  }
 
-  static const int typeNum = 3;
+  static const int typeNum = 4;
   static const int scaleType = 0;
   static const int knownType = 1;
   static const int smoothType = 2;
+  static const int coupleType = 3;
   static const String scaleName;
   static const String knownName;
   static const String smoothName;
+  static const String coupleName;
 
   static String name(int type0) {
     switch(type0) {
@@ -118,6 +146,8 @@ public:
       return knownName;
     case smoothType:
       return smoothName;
+    case coupleType:
+      return coupleName;
     default:
       return String("UNKNOWN_PRIOR");
     }
@@ -126,6 +156,7 @@ public:
     if (name == scaleName) return scaleType;
     if (name == knownName) return knownType;
     if (name == smoothName) return smoothType;
+    if (name == coupleName) return coupleType;
     return -1;
   }
 
@@ -143,6 +174,10 @@ public:
 
       // The known values prior.
     case knownType:
+      if (refField == NULL) {
+	fprintf(stderr, "ERROR Prior known: reference field has not been set.\n");
+	  exit(-1);
+      }
 #pragma omp parallel for reduction(+:cost)
       for (int i = startIndex; i <= endIndex; i++) {
 	double err = refField->getErr(i);
@@ -171,27 +206,46 @@ public:
       }
       break;
 
+     // The smoothness prior.
+    case coupleType:
+      if (coupleField == NULL) {
+	fprintf(stderr, "ERROR Prior couple: field to couple to has not been set.\n");
+	exit(-1);
+      }
+
+      // A pair is considered valid for the smoothness prior when the node with
+      // the larger index is consistent with startIndex <= index <= endIndex.
+#pragma omp parallel for reduction(+:cost)
+      for (int i = startIndex; i <= endIndex; i++) {
+	double dv = field->get(i) - coupleField->get(i);
+	cost += 0.5*(dv*dv)/coupleVar;
+      }
+      break;
+
     }
 
     return cost;
   }
 
   double deltaCost(const TrialMove& trialMove) {
-    // There is no change if the prior doesn't apply to the modified field.
-    if ( trialMove.fieldId != fieldId ) return 0.0;
-
     int i, i1, i2, i0;
     double err, refV, lastDv, currDv, delta;
 
     switch(type) {
 
-      // The scale invariance prior.
+
     case scaleType:
+      // The scale invariance prior.
+      // There is no change if the prior doesn't apply to the modified field.
+      if ( trialMove.fieldId != fieldId ) return 0.0;
       return log(trialMove.trialVal) - log(trialMove.lastVal);
 
-      // The known values prior.
+
     case knownType:
-      // Check that the change was to this field.
+      // The known values prior.
+      // There is no change if the prior doesn't apply to the modified field.
+      if ( trialMove.fieldId != fieldId ) return 0.0;
+
       i = trialMove.node;
 
       // The known values prior.
@@ -205,8 +259,10 @@ public:
 	return 0.5*(currDv*currDv - lastDv*lastDv)/(err*err);
       else return 0.0;
 
-      // The smoothness prior.
     case smoothType:
+      // The smoothness prior.
+      // There is no change if the prior doesn't apply to the modified field.
+      if ( trialMove.fieldId != fieldId ) return 0.0;
       delta = 0.0;
 
       i1 = trialMove.node;
@@ -234,6 +290,29 @@ public:
       }
 
       return delta;
+
+    case coupleType:
+      // The coupling prior.
+      // There is no change if the prior doesn't apply to the modified field.
+      // We must check both the prior's field and field it's COUPLED to!
+      if ( trialMove.fieldId != fieldId && trialMove.fieldId != coupleFieldId ) return 0.0;
+
+      i = trialMove.node;
+      if (i < startIndex || i > endIndex ) return 0.0;
+
+      // Coupling prior.
+      double v;
+      if (trialMove.fieldId == fieldId) {
+	// Move was in the primary field.
+	v = coupleField->get(i);
+      } else {
+	// Move was in coupleField.
+	v = field->get(i);
+      }
+      lastDv = trialMove.lastVal - v;
+      currDv = trialMove.trialVal - v;
+
+      return 0.5*(currDv*currDv - lastDv*lastDv)/coupleVar;
     }
 
     return 0.0;
@@ -246,6 +325,6 @@ public:
 const String Prior::scaleName("scale");
 const String Prior::knownName("known");
 const String Prior::smoothName("smooth");
-
+const String Prior::coupleName("couple");
 
 #endif
