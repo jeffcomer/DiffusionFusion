@@ -30,10 +30,10 @@ private:
   double bound1;
 
 public:
-  TrajReflect2d(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, int dimension0) :
-    TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 5) {
+  TrajReflect2d(tcd) :
+    TrajCostComputer(tcd, 5), dimension(tcd.dimension0) {
 
-    if (tcFieldNum != 2) {
+    if (fieldSel.length() != 2) {
       fprintf(stderr, "ERROR trajCost ccg2d takes two fields: (0) diffusivity (1) force \n");
       exit(-1);
     }

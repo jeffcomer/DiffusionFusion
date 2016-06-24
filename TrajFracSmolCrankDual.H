@@ -40,10 +40,10 @@ private:
   TimeFracCrankSolver* solver;
   
 public:
-  TrajFracSmolCrankDual(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, double timestep0, double maxHop0) :
-    TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 2), timestep(timestep0), maxHop(maxHop0) {
+  TrajFracSmolCrank(TrajCostDesc& tcd) :
+    TrajCostComputer(tcd,2), timestep(tcd.timestep), maxHop(tcd.maxHop) {
 
-    if (tcFieldNum != 3) {
+    if (fieldSel.length() != 3) {
       fprintf(stderr, "ERROR trajCost FracSmolCrankDual takes three fields: (0) diffusivity (1) force (2) alpha\n");
       exit(-1);
     }

@@ -12,6 +12,7 @@
 #ifndef TRAJCOSTCOMPUTER_H
 #define TRAJCOSTCOMPUTER_H
 
+#include "TrajCostDesc.H"
 #include "TrialMove.H"
 
 struct LocalCost {
@@ -26,16 +27,18 @@ protected:
   const double beta; // 1/kT
   // The fields that are involved in the trajCost.
   const Field** fieldList;
-  const int tcFieldNum;
   const IndexList fieldSel;
-  const int eventNum;
   const Event* event;
   const Field* leastLocalField;
-  const int leastLocalNodes;
+  int leastLocalNodes;
   int trajVarMin;
   int* eventIndList;
   // Each node of each field has events associated with it.
   LocalCost* local;
+
+  int eventStart;
+  int eventEnd;
+  int group;
 
 public:
   // Store variables which can be used to reconstruct gt.
@@ -45,11 +48,41 @@ public:
   double gtVar; // sigma^2
 
 public:  
-  TrajCostComputer(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocalFieldInd, int trajVarMin0)
-    : beta(1.0/kt), fieldList(ppf), tcFieldNum(fieldSel0.length()), fieldSel(fieldSel0), eventNum(eventNum0), event(event0), leastLocalField(ppf[leastLocalFieldInd]), leastLocalNodes(leastLocalField->length()), trajVarMin(trajVarMin0) {
-    if (tcFieldNum == 0) {
+  TrajCostComputer(TrajCostDesc& tcd, int trajVarMin0)
+    : beta(1.0/tcd.kbt), fieldList((const Field**)tcd.fieldList), fieldSel(tcd.fieldSel),
+      event(tcd.event), leastLocalField(fieldList[tcd.leastLocal]), trajVarMin(trajVarMin0) {
+    if (fieldSel.length() == 0) {
       fprintf(stderr, "ERROR TrajCostComputer must act on at least one field.\n");
       exit(-1);
+    }
+    leastLocalNodes = leastLocalField->length();
+
+    group = tcd.group;
+    if (group < 0) {
+      // Just select all events.
+      eventStart = 0;
+      eventEnd = tcd.eventNum-1;
+    } else {
+      // Find the starting and ending events.
+      eventStart = -1;
+      eventEnd = -1;
+      for (int e = 0; e < tcd.eventNum; e++) {
+	if (eventStart < -1 && event[e].group == group) eventStart = e;
+	if (eventStart != -1 && event[e].group != group) eventEnd = e-1;
+
+	if (eventEnd != -1 && event[e].group == group) {
+	  fprintf(stderr, "ERROR TrajCostComputer Events with the same group number must be contiguous.\n");
+	  exit(-1);
+	}
+      }
+      // This group reaches the end of the array.
+      if (eventEnd == -1) eventEnd = tcd.eventNum-1;
+
+      // Check that we found this group.
+      if (eventStart == -1) {
+	fprintf(stderr, "ERROR TrajCostComputer No events with -group %d\n", group);
+	exit(-1);
+      }
     }
         
     initLocal();
@@ -95,6 +128,7 @@ public:
     eventVarShortcuts();
   }
 
+  int getEventNum() const { return eventEnd - eventStart + 1; }
   int getTrajVarMin() const { return trajVarMin; }
   int eventVarIndex(int i) const {
     if (i >= 0 && i < trajVarMin) return eventIndList[i];
@@ -103,8 +137,8 @@ public:
   
   double getKt() const { return 1.0/beta; }
   int getNodes() const { return leastLocalNodes; }
-  // This is usually the number of events, but can be overloaded.
-  virtual int unitNum() const { return eventNum; }
+  int getEventStart() const { return eventStart; }
+  int getEventEnd() const { return eventEnd; }
 
   static bool nanCheck(double cost, int index, double disp, double mean, double mean1, double var) {
     if (cost != cost) {
@@ -127,7 +161,7 @@ public:
   virtual double calcCost() {
     long double cost = 0.0;
 #pragma omp parallel for reduction(+:cost)
-    for (int e = 0; e < eventNum; e++) cost += eventCost(e);
+    for (int e = eventStart; e <= eventEnd; e++) cost += eventCost(e);
     return cost;
   }
 
@@ -229,7 +263,7 @@ private:
     local = new LocalCost[leastLocalNodes];
 
     // Assign events to nodes.
-    for (int e = 0; e < eventNum; e++) {
+    for (int e = eventStart; e < eventEnd; e++) {
       int near = leastLocalField->getNode(event[e].var);
       // Add this event to its near node.
       local[near].events.add(e);

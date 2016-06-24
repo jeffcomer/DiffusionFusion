@@ -20,6 +20,7 @@
 #include "useful.H"
 #include "CommandLineReader.H"
 #include "TrajFilter.H"
+#include "TrajCostDesc.H"
 #include "Event.H"
 #include "Field.H"
 #include "Bin.H"
@@ -35,34 +36,38 @@
 
 // Various types of trajectory cost calculators, some experimental.
 #include "TrajComer.H"
-#include "TrajComerPmf.H"
-#include "TrajComer2d.H"
-#include "TrajReflect.H"
-#include "TrajReflect2d.H"
 #include "TrajSmolCrank.H"
-#include "TrajSmolCrankBias.H"
 #include "TrajFracSmolCrank.H"
-#include "TrajFracSmolCrankDual.H"
-#include "TrajSmolCrankDual.H"
+#include "TrajReflect.H"
+#include "TrajComer2d.H"
+#include "TrajReflect2d.H"
+
+// #include "TrajReflect2d.H"
+// #include "TrajComerPmf.H"
+// #include "TrajSmolCrank.H"
+// #include "TrajSmolCrankBias.H"
+// #include "TrajFracSmolCrank.H"
+// #include "TrajFracSmolCrankDual.H"
+// #include "TrajSmolCrankDual.H"
 
 // Mostly experimental
-#include "TrajSmolCrank1.H"
-#include "TrajFoxFunction.H"
-#include "TrajComerPmf2d.H"
-#include "TrajLangevin.H"
-#include "TrajLangevinExp.H"
-#include "TrajLangevinExp2d.H"
-#include "TrajLangevinGamma.H"
-#include "TrajComerLog.H"
-#include "TrajTurkcan.H"
-#include "TrajComer2d2d.H"
-#include "TrajComerPmf2d2d.H"
-#include "TrajComer2d2d2d.H"
-#include "TrajFdSmoluchowski.H"
-#include "TrajSimpleSmol.H"
-#include "TrajSimpleSmolReflect.H"
-#include "TrajSmolReflectBias.H"
-#include "TrajNoise.H"
+// #include "TrajSmolCrank1.H"
+// #include "TrajFoxFunction.H"
+// #include "TrajComerPmf2d.H"
+// #include "TrajLangevin.H"
+// #include "TrajLangevinExp.H"
+// #include "TrajLangevinExp2d.H"
+// #include "TrajLangevinGamma.H"
+// #include "TrajComerLog.H"
+// #include "TrajTurkcan.H"
+// #include "TrajComer2d2d.H"
+// #include "TrajComerPmf2d2d.H"
+// #include "TrajComer2d2d2d.H"
+// #include "TrajFdSmoluchowski.H"
+// #include "TrajSimpleSmol.H"
+// #include "TrajSimpleSmolReflect.H"
+// #include "TrajSmolReflectBias.H"
+// #include "TrajNoise.H"
 
 struct TrajFile {
 public:
@@ -70,6 +75,7 @@ public:
   int stride;
   int skip;
   int position;
+  int group;
   TrajFilter* filter;
   String biasFile;
   String biasCountFile;
@@ -100,6 +106,7 @@ public:
     return String(s);
   }
 };
+
 
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
@@ -360,19 +367,23 @@ public:
     fprintf(stdout, "\t*Note: Replacing the column index with a period `.' makes a variable of all zeros.\n");
     fprintf(stdout, "\t*Note: An important restriction is that the coordinates must be given in the order of the axes of the fields.");
     fprintf(stdout, "\t e.g., the first -coor is assumed to the primary direction in all fields.\n");
-    fprintf(stdout, "\nload trajFile [-stride dataStride] [-skip eventSkip] [-minVar colName -minVal val] [-maxVar colName -maxVal val] [-scaleVar colName -scaleVal val] [-periodicVar col -periodicMin qMin -periodicMax qMax] [-pos init|mid|final] [-bias biasHistoryFile] [-biasSmooth width] [-biasCount biasCountHistoryFile] [-biasFullSamples fullSamples]\n");
+    fprintf(stdout, "\nload trajFile [-stride dataStride] [-skip eventSkip] [-minVar colName -minVal val] [-maxVar colName -maxVal val] [-scaleVar colName -scaleVal val] [-periodicVar col -periodicMin qMin -periodicMax qMax] [-pos init|mid|final] [-bias biasHistoryFile] [-biasSmooth width] [-biasCount biasCountHistoryFile] [-biasFullSamples fullSamples] [-group group]\n");
     //fprintf(stdout, "\t*Note: -minVal and -maxVal filters apply to the initial of position of an event\n");
     fprintf(stdout, "\t*Note: -stride changes the time between frames, while -skip\n\t\tthrows out events after the interval has been calculated.\n");
+    fprintf(stdout, "\t*Note: Events in the same group (specified by -group) must be loaded by contiguous load commands\n");
     fprintf(stdout, "\nloadMany trajFileFile [same options as load]\n");
     fprintf(stdout, "\t*Note: Using -bias with loadMany probably doesn't make sense -- all files will use the same bias history. No warning will be issued.\n");
     fprintf(stdout, "\nloadEvent [-skip eventSkip] [-offset remainder] eventFile\n");
     fprintf(stdout, "\t*Note: Assumed to already be correctly filtered.\n");
+    fprintf(stdout, "\t*Note: loadEvent does not yet support event groups.\n");
     fprintf(stdout, "\nfield fieldName fieldType -step mcStep [-f initialFileName] [-periodic true|false] [-n numEntries] [-fixed fixedNodeFile] [-init initialValue] [-minVal val] [-maxVal val] [-var colName] [-err errorFile] [-outPmf force|prob] [-global true|false]\n");
     fprintf(stdout, "\t*Note: -outPmf force|prob allows you to write the negative integral\n\t\tor -kT log(prob), respectively, in addition writing the\n\t\tfield in the normal way.\n");
     fprintf(stdout, "\t*Note: -global permits parameters that affect all nodes.\n");
     fprintf(stdout, "\nprior scale|known|smooth field [-ref refField] [-err uniformErr] [-grad gradientStd] [-dim gradientDimension] [-start startingFieldIndex] [-end endingFieldIndex]\n");
     fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -tol relErrMax -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
-    fprintf(stdout, "\ntrajCost ccg|ccgPmf|ccg2d|reflect|reflect2d|smolCrank|smolCrankBias|fracSmolCrank|smolCrankDual|fracSmolCrankDual|langevinExp|smoluchowski|simpleSmol|reflectSmol field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-timestep timestep] [-hop maxHop] [-dim primaryDimension]\n");
+    //fprintf(stdout, "\ntrajCost ccg|ccgPmf|ccg2d|reflect|reflect2d|smolCrank|smolCrankBias|fracSmolCrank|smolCrankDual|fracSmolCrankDual|langevinExp|smoluchowski|simpleSmol|reflectSmol field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-timestep timestep] [-hop maxHop] [-dim primaryDimension] [-group group]\n");
+
+    fprintf(stdout, "\ntrajCost ccg|reflect|ccg2d|reflect2d|smolCrank|fracSmolCrank field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-timestep timestep] [-hop maxHop] [-dim primaryDimension] [-group group]\n");
     fprintf(stdout, "\ndump events|fields|distro|best|eventCost|bias dumpFile\n");
     fprintf(stdout, "\t*Note: A '%%' in dumpFile is substituted with 'output'.\n");
   }
@@ -1015,6 +1026,7 @@ private:
     traj.stride = 1;
     traj.skip = 1;
     traj.position = TrajFile::posInit;
+    traj.group = 0;
     traj.filter = new TrajFilter(trajVarNum);
     traj.biasFile = "";
     traj.biasCountFile = "";
@@ -1042,6 +1054,12 @@ private:
 	traj.position = TrajFile::getPosIndex(val);
 	if (traj.position < 1) {
 	  fprintf(stderr, "ERROR load %s: -pos %s unrecognized.\n", fileName.cs(), val.cs());
+	  exit(-1);
+	}
+      } else if (opt == "group") {
+	traj.group = atoi(val);
+	if (traj.group < 0) {
+	  fprintf(stderr, "ERROR load %s: -group %d should be nonnegative.\n", fileName.cs(), traj.group);
 	  exit(-1);
 	}
       } else if (opt == "bias") {
@@ -1328,8 +1346,8 @@ private:
     }
     String type = cmdLine.getParam(0);
 
+    TrajCostDesc tcd(fieldList,event,eventNum);
     int tcFieldNum = cmdLine.getParamNum() - 1;
-    IndexList tcFieldSel;
     
     // Make a list of the relevant fields for this tc.
     for (int i = 0; i < tcFieldNum; i++) {
@@ -1345,15 +1363,10 @@ private:
 	exit(-1);
       }
       
-      tcFieldSel.add(f);
+      tcd.fieldSel.add(f);
     }
 
     // Set some defaults.
-    double kbt = 1.0;
-    int leastLocal = -1;
-    double timestep = -1.0;
-    double maxHop = -1.0;
-    int dimension = -1;
     String* optCostVar = new String[cmdLine.getOptionNum()];
     IndexList optTrajVar;
 
@@ -1362,10 +1375,11 @@ private:
       String opt(cmdLine.getOption(o));
       String val(cmdLine.getOptionValue(o));
 
-      if (opt == "kt") kbt = strtod(val, NULL);
-      else if (opt == "timestep") timestep = strtod(val, NULL);
-      else if (opt == "hop") maxHop = strtod(val, NULL);
-      else if (opt == "dim") dimension = atoi(val);
+      if (opt == "kt") tcd.kbt = strtod(val, NULL);
+      else if (opt == "timestep") tcd.timestep = strtod(val, NULL);
+      else if (opt == "hop") tcd.maxHop = strtod(val, NULL);
+      else if (opt == "dim") tcd.dimension = atoi(val);
+      else if (opt == "group") tcd.group = atoi(val);
       else if (opt == "leastLocal") {
 	// Find the field that correpsponds to the given name.
 	int f;
@@ -1375,7 +1389,7 @@ private:
 	  //printUsage();
 	  exit(-1);
 	}
-	leastLocal = f;
+	tcd.leastLocal = f;
       } else {
 	// See if the option value is a trajectory variable name.
 	int v;
@@ -1394,141 +1408,180 @@ private:
     }
 
     // Default to the first field.
-    if (leastLocal < 0) leastLocal = tcFieldSel.get(0);
+    if (tcd.leastLocal < 0) tcd.leastLocal = tcd.fieldSel.get(0);
 
     // Initialize the trajectory cost computer.
-    if (type == "ccgPmf"  || type == "pmf") {
-      trajCostList[tc] = new TrajComerPmf((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-    } else if (type == "ccg") {
-       trajCostList[tc] = new TrajComer((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+    // Just the basics.
+    if (type == "ccg") {
+      trajCostList[tc] = new TrajComer(tcd);
     } else if (type == "reflect") {
-       trajCostList[tc] = new TrajReflect((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-    } else if (type == "noise") {
-       trajCostList[tc] = new TrajNoise((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-    } else if (type == "foxFunc") {
-       trajCostList[tc] = new TrajFoxFunction((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-    } else if (type == "ccgLog") {
-      trajCostList[tc] = new TrajComerLog((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-    } else if (type == "langevin" || type == "bbkPmf") {
-      trajCostList[tc] = new TrajLangevin((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-    } else if (type == "langevinGamma") {
-      trajCostList[tc] = new TrajLangevinGamma((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-     } else if (type == "turkcan") {
-      trajCostList[tc] = new TrajTurkcan((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-     } else if (type == "langevinExp") {
-      trajCostList[tc] = new TrajLangevinExp((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-     } else if (type == "langevinExp2d") {
-      trajCostList[tc] = new TrajLangevinExp2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
+      trajCostList[tc] = new TrajReflect(tcd);
     } else if (type == "ccg2d") {
-      if (dimension < 0) {
-	fprintf(stderr,"ERROR trajCost %s: You must define -dim\n", type.cs());
-	exit(-1);
+      if (tcd.dimension < 0) {
+    	fprintf(stderr,"ERROR trajCost %s: You must define -dim\n", type.cs());
+     	exit(-1);
       }
-      trajCostList[tc] = new TrajComer2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, dimension);
+      trajCostList[tc] = new TrajComer2d(tcd);
     } else if (type == "reflect2d") {
-      if (dimension < 0) {
-	fprintf(stderr,"ERROR trajCost %s: You must define -dim\n", type.cs());
-	exit(-1);
+      if (tcd.dimension < 0) {
+    	fprintf(stderr,"ERROR trajCost %s: You must define -dim\n", type.cs());
+     	exit(-1);
       }
-      trajCostList[tc] = new TrajReflect2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, dimension);
-    } else if (type == "ccgPmf2d") {
-       trajCostList[tc] = new TrajComerPmf2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-       printf("Note that the PMF given by ccgPmf2d is defined only up to a constant function of the second dimension.\n");
-    } else if (type == "ccg2d2d") {
-       trajCostList[tc] = new TrajComer2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-    } else if (type == "ccgPmf2d2d") {
-       trajCostList[tc] = new TrajComerPmf2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-    } else if (type == "ccg2d2d2d") {
-       trajCostList[tc] = new TrajComer2d2d2d((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal);
-    } else if (type == "smoluchowski") {
-      if (timestep < 0.0) {
-	fprintf(stderr,"ERROR: trajCost smoluchowski requires a timestep. Add '-timestep' to the trajCost command.\n");
-	exit(-1);
+      trajCostList[tc] = new TrajReflect2d(tcd);
+    } else if (type == "smolCrank") {
+      if (tcd.timestep < 0.0 || tcd.maxHop < 0.0) {
+    	fprintf(stderr,"ERROR: trajCost smolCrank0 requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+    	exit(-1);
       }
-      trajCostList[tc] = new TrajFdSmoluchowski((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, timestep);
-    } else if (type == "simpleSmol") {
-      if (timestep < 0.0 || maxHop < 0.0) {
-	fprintf(stderr,"ERROR: trajCost simpleSmol requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
-	exit(-1);
-      }
-      trajCostList[tc] = new TrajSimpleSmol((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, timestep, maxHop);
-    } else if (type == "reflectSmol") {
-      if (timestep < 0.0 || maxHop < 0.0) {
-	fprintf(stderr,"ERROR: trajCost reflectSmol requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
-	exit(-1);
-      }
-      trajCostList[tc] = new TrajSimpleSmolReflect((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, timestep, maxHop);
-    } else if (type == "biasSmol") {
-      if (timestep < 0.0 || maxHop < 0.0) {
-	fprintf(stderr,"ERROR: trajCost biasSmol requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
-	exit(-1);
-      }
-      trajCostList[tc] = new TrajSmolReflectBias((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, timestep, maxHop);
-    } else if (type == "smolCrankBias") {
-      if (timestep < 0.0 || maxHop < 0.0) {
-	fprintf(stderr,"ERROR: trajCost smolCrank requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
-	exit(-1);
-      }
-      trajCostList[tc] = new TrajSmolCrankBias((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, biasFieldList, timestep, maxHop);
-    } else if (type == "smolCrank0" || type == "smolCrank") {
-      if (timestep < 0.0 || maxHop < 0.0) {
-	fprintf(stderr,"ERROR: trajCost smolCrank0 requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
-	exit(-1);
-      }
-      trajCostList[tc] = new TrajSmolCrank((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, timestep, maxHop);
-    } else if (type == "smolCrankDual") {
-      if (timestep < 0.0 || maxHop < 0.0) {
-	fprintf(stderr,"ERROR: trajCost smolCrankDual requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
-	exit(-1);
-      }
-      trajCostList[tc] = new TrajSmolCrankDual((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, timestep, maxHop);
-    } else if (type == "smolCrank1") {
-      if (timestep < 0.0 || maxHop < 0.0) {
-	fprintf(stderr,"ERROR: trajCost smolCrank0 requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
-	exit(-1);
-      }
-      trajCostList[tc] = new TrajSmolCrank1((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, timestep, maxHop);
+      trajCostList[tc] = new TrajSmolCrank(tcd);
     } else if (type == "fracSmolCrank") {
-      if (timestep < 0.0 || maxHop < 0.0) {
-	fprintf(stderr,"ERROR: trajCost fracSmolCrank requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
-	exit(-1);
+      if (tcd.timestep < 0.0 || tcd.maxHop < 0.0) {
+    	fprintf(stderr,"ERROR: trajCost fracSmolCrank requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+    	exit(-1);
       }
-      trajCostList[tc] = new TrajFracSmolCrank((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, timestep, maxHop);
-    } else if (type == "fracSmolCrankDual") {
-      if (timestep < 0.0 || maxHop < 0.0) {
-	fprintf(stderr,"ERROR: trajCost fracSmolCrankDual requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
-	exit(-1);
-      }
-      trajCostList[tc] = new TrajFracSmolCrankDual((const Field**)fieldList, tcFieldSel, event, eventNum, kbt, leastLocal, timestep, maxHop);
+      trajCostList[tc] = new TrajFracSmolCrank(tcd);
     } else {
       fprintf(stderr, "ERROR trajCost: Unrecognized type `%s'\n", type.cs());
       printUsage();
       exit(-1);
     }
 
+
+    // // Initialize the trajectory cost computer.
+    // if (type == "ccgPmf"  || type == "pmf") {
+    //   trajCostList[tc] = new TrajComerPmf(tcd);
+    // } else if (type == "ccg") {
+    //    trajCostList[tc] = new TrajComer(tcd);
+    // } else if (type == "reflect") {
+    //    trajCostList[tc] = new TrajReflect(tcd);
+    // } else if (type == "noise") {
+    //    trajCostList[tc] = new TrajNoise(tcd);
+    // } else if (type == "foxFunc") {
+    //    trajCostList[tc] = new TrajFoxFunction(tcd);
+    // } else if (type == "ccgLog") {
+    //   trajCostList[tc] = new TrajComerLog(tcd);
+    // } else if (type == "langevin" || type == "bbkPmf") {
+    //   trajCostList[tc] = new TrajLangevin(tcd);
+    // } else if (type == "langevinGamma") {
+    //   trajCostList[tc] = new TrajLangevinGamma(tcd);
+    //  } else if (type == "turkcan") {
+    //   trajCostList[tc] = new TrajTurkcan(tcd);
+    //  } else if (type == "langevinExp") {
+    //   trajCostList[tc] = new TrajLangevinExp(tcd);
+    //  } else if (type == "langevinExp2d") {
+    //   trajCostList[tc] = new TrajLangevinExp2d(tcd);
+    // } else if (type == "ccg2d") {
+    //   if (tcd.dimension < 0) {
+    // 	fprintf(stderr,"ERROR trajCost %s: You must define -dim\n", type.cs());
+    // 	exit(-1);
+    //   }
+    //   trajCostList[tc] = new TrajComer2d(tcd);
+    // } else if (type == "reflect2d") {
+    //   if (tcd.dimension < 0) {
+    // 	fprintf(stderr,"ERROR trajCost %s: You must define -dim\n", type.cs());
+    // 	exit(-1);
+    //   }
+    //   trajCostList[tc] = new TrajReflect2d(tcd);
+    // } else if (type == "ccgPmf2d") {
+    //    trajCostList[tc] = new TrajComerPmf2d(tcd);
+    //    printf("Note that the PMF given by ccgPmf2d is defined only up to a constant function of the second dimension.\n");
+    // } else if (type == "ccg2d2d") {
+    //    trajCostList[tc] = new TrajComer2d2d(tcd);
+    // } else if (type == "ccgPmf2d2d") {
+    //    trajCostList[tc] = new TrajComerPmf2d2d(tcd);
+    // } else if (type == "ccg2d2d2d") {
+    //    trajCostList[tc] = new TrajComer2d2d2d(tcd);
+    // } else if (type == "smoluchowski") {
+    //   if (tcd.timestep < 0.0) {
+    // 	fprintf(stderr,"ERROR: trajCost smoluchowski requires a timestep. Add '-timestep' to the trajCost command.\n");
+    // 	exit(-1);
+    //   }
+    //   trajCostList[tc] = new TrajFdSmoluchowski(tcd, biasFieldList);
+    // } else if (type == "simpleSmol") {
+    //   if (tcd.timestep < 0.0 || tcd.maxHop < 0.0) {
+    // 	fprintf(stderr,"ERROR: trajCost simpleSmol requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+    // 	exit(-1);
+    //   }
+    //   trajCostList[tc] = new TrajSimpleSmol(tcd, biasFieldList);
+    // } else if (type == "reflectSmol") {
+    //   if (tcd.timestep < 0.0 || tcd.maxHop < 0.0) {
+    // 	fprintf(stderr,"ERROR: trajCost reflectSmol requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+    // 	exit(-1);
+    //   }
+    //   trajCostList[tc] = new TrajSimpleSmolReflect(tcd, biasFieldList);
+    // } else if (type == "biasSmol") {
+    //   if (tcd.timestep < 0.0 || tcd.maxHop < 0.0) {
+    // 	fprintf(stderr,"ERROR: trajCost biasSmol requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+    // 	exit(-1);
+    //   }
+    //   trajCostList[tc] = new TrajSmolReflectBias(tcd, biasFieldList);
+    // } else if (type == "smolCrankBias") {
+    //   if (tcd.timestep < 0.0 || tcd.maxHop < 0.0) {
+    // 	fprintf(stderr,"ERROR: trajCost smolCrank requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+    // 	exit(-1);
+    //   }
+    //   trajCostList[tc] = new TrajSmolCrankBias(tcd, biasFieldList);
+    // } else if (type == "smolCrank0" || type == "smolCrank") {
+    //   if (tcd.timestep < 0.0 || tcd.maxHop < 0.0) {
+    // 	fprintf(stderr,"ERROR: trajCost smolCrank0 requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+    // 	exit(-1);
+    //   }
+    //   trajCostList[tc] = new TrajSmolCrank(tcd);
+    // } else if (type == "smolCrankDual") {
+    //   if (tcd.timestep < 0.0 || tcd.maxHop < 0.0) {
+    // 	fprintf(stderr,"ERROR: trajCost smolCrankDual requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+    // 	exit(-1);
+    //   }
+    //   trajCostList[tc] = new TrajSmolCrankDual(tcd);
+    // } else if (type == "smolCrank1") {
+    //   if (tcd.timestep < 0.0 || tcd.maxHop < 0.0) {
+    // 	fprintf(stderr,"ERROR: trajCost smolCrank0 requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+    // 	exit(-1);
+    //   }
+    //   trajCostList[tc] = new TrajSmolCrank1(tcd);
+    // } else if (type == "fracSmolCrank") {
+    //   if (tcd.timestep < 0.0 || tcd.maxHop < 0.0) {
+    // 	fprintf(stderr,"ERROR: trajCost fracSmolCrank requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+    // 	exit(-1);
+    //   }
+    //   trajCostList[tc] = new TrajFracSmolCrank(tcd);
+    // } else if (type == "fracSmolCrankDual") {
+    //   if (tcd.timestep < 0.0 || tcd.maxHop < 0.0) {
+    // 	fprintf(stderr,"ERROR: trajCost fracSmolCrankDual requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+    // 	exit(-1);
+    //   }
+    //   trajCostList[tc] = new TrajFracSmolCrankDual(tcd);
+    // } else {
+    //   fprintf(stderr, "ERROR trajCost: Unrecognized type `%s'\n", type.cs());
+    //   printUsage();
+    //   exit(-1);
+    // }
+
     // Initialize the trajectory variables.
     trajCostList[tc]->initCostVars(optCostVar, optTrajVar);
 
     printf("\nTRAJCOST %s\n", type.cs());
     for (int f = 0; f < tcFieldNum; f++) {
-      int ifi = tcFieldSel.get(f);
+      int ifi = tcd.fieldSel.get(f);
       printf("  field %d %s \"%s\"\n", ifi, trajCostList[tc]->fieldName(f).cs(), fieldDesc[ifi].name.cs());
     }
     for (int v = 0; v < trajCostList[tc]->getTrajVarMin(); v++) {
       int ev = trajCostList[tc]->eventVarIndex(v);
       printf("  var %d %s \"%s\"\n", v, trajCostList[tc]->eventVarName(v).cs(), trajVarName[ev].cs());
     }
+    printf("  events %d\n", trajCostList[tc]->getEventNum());
 
     printf("  kT %.15g\n", trajCostList[tc]->getKt());
-    if (dimension > 0) printf("  dimension %d\n", dimension);
-    if (timestep > 0.0) printf("  timestep %.15g\n", timestep);
+    if (tcd.dimension > 0) printf("  dimension %d\n", tcd.dimension);
+    if (tcd.timestep > 0.0) printf("  timestep %.15g\n", tcd.timestep);
+    if (tcd.group > 0.0) printf("  group %d\n", tcd.group);
 
-    printf("  leastLocalField %d \"%s\" \n", leastLocal, fieldDesc[leastLocal].name.cs());
+    printf("  leastLocalField %d \"%s\" \n", tcd.leastLocal, fieldDesc[tcd.leastLocal].name.cs());
     printf("\n");
 
     // Fill the array to know which fields are relevant.
     for (int f = 0; f < fieldNum; f++) {
-      if (tcFieldSel.find(f) >= 0) tcFieldOn[tc][f] = true;
+      if (tcd.fieldSel.find(f) >= 0) tcFieldOn[tc][f] = true;
       else tcFieldOn[tc][f] = false;
       printf("trajCost %d field %d %s\n", tc, f, tcFieldOn[tc][f]?"on":"off");
     }
@@ -2013,7 +2066,10 @@ private:
 	fprintf(stderr, "Warning: line %d of file `%s' has too few columns (%d of %d).\n", ln, traj.fileName.cs(), tokN, maxColumn);
 	continue;
       }
-      
+
+      // Events can be placed in groups.
+      event[eventNum].group = traj.group;
+
       // Serial tells you how far through the file we are--which
       // can be used to determine the closest bias field in the history file.
       event[eventNum].serial = serial;
@@ -2214,7 +2270,7 @@ public:
       for (int v = 0; v < trajVarNum; v++) {
 	fprintf(out, "%.14g %.14g %.14g ", event[e].var[v], event[e].del[v], event[e].del0[v]);
       }
-      fprintf(out, "%d\n", event[e].bias);
+      fprintf(out, "%d %d\n", event[e].group, event[e].bias);
     }
 
     fclose(out);
@@ -2293,9 +2349,9 @@ public:
   void writeGtDistro(const String& fileName) {
     for (int tc = 0; tc < trajCostNum; tc++) {
       // Get the gt value for each event.
-      int n = trajCostList[tc]->unitNum();
+      const int n =  trajCostList[tc]->getEventNum();
       double* gt = new double[n];
-      for (int e = 0; e < n; e++) {
+      for (int e = trajCostList[tc]->getEventStart(); e <= trajCostList[tc]->getEventEnd(); e++) {
 	trajCostList[tc]->eventCost(e);
 	gt[e] = trajCostList[tc]->gtNumer/sqrt(trajCostList[tc]->gtVar);
       }
@@ -2334,7 +2390,7 @@ public:
       return false;
     }
     for (int tc = 0; tc < trajCostNum; tc++) {
-      for (int e = 0; e < trajCostList[tc]->unitNum(); e++)
+      for (int e = trajCostList[tc]->getEventStart(); e <= trajCostList[tc]->getEventEnd(); e++)
 	fprintf(out, "%.14g\n", trajCostList[tc]->eventCost(e));
     }
 

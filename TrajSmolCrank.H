@@ -38,22 +38,22 @@ private:
   CrankNicholsonSolver* solver;
   
 public:
-  TrajSmolCrank(const Field** ppf, IndexList fieldSel0, const Event* event0, int eventNum0, double kt, int leastLocal, double timestep0, double maxHop0) :
-    TrajCostComputer(ppf, fieldSel0, event0, eventNum0, kt, leastLocal, 2), timestep(timestep0), maxHop(maxHop0) {
+  TrajSmolCrank(TrajCostDesc& tcd) :
+    TrajCostComputer(tcd,2), timestep(tcd.timestep), maxHop(tcd.maxHop) {
 
-    if (tcFieldNum != 2) {
-      fprintf(stderr, "ERROR trajCost SmolCrank takes two fields: (0) diffusivity (1) force\n");
+    if (fieldSel.length() != 2) {
+      fprintf(stderr, "ERROR trajCost smolCrank takes two fields: (0) diffusivity (1) force\n");
       exit(-1);
     }
 
     diffuse = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(0)]);
     if (diffuse == NULL) {
-      fprintf(stderr,"ERROR trajCost SmolCrank requires field type linear or cubic.\n");
+      fprintf(stderr,"ERROR trajCost smolCrank requires field type linear or cubic.\n");
       exit(-1);
     }
     force = dynamic_cast<const Piecewise1d*>(fieldList[fieldSel.get(1)]);
     if (force == NULL) {
-      fprintf(stderr,"ERROR trajCost SmolCrank requires field type linear or cubic.\n");
+      fprintf(stderr,"ERROR trajCost smolCrank requires field type linear or cubic.\n");
       exit(-1);
     }
 
@@ -88,7 +88,7 @@ public:
 
     // Check the event delT.
     delT = event[0].del[T];
-    for (int e = 0; e < eventNum; e++) {
+    for (int e = eventStart; e <= eventEnd; e++) {
       double d = fabs(delT - event[e].del[T])/delT;
        if (d > 0.1) {
 	 fprintf(stderr,"event 0 del[T] %.15g event %d del[T] %.15g\n", delT, e, event[e].del[T]);
