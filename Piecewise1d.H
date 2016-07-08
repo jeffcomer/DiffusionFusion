@@ -326,6 +326,9 @@ public:
   double getNodePos(int j) const {
     return r0 + dr*j;
   }
+  virtual double nodePos(int j, int dim) const {
+    return r0 + dr*j;
+  }
   double getNodeCenter(int j) const {
     return r0 + dr*(j+0.5);
   }
@@ -413,7 +416,7 @@ public:
     return true;
   }
 
-  double nodePos(int i) const { return r0 + dr*i; }
+  virtual int dimensions() const { return 1; }
 
 protected:
   // Integrate over cell j.

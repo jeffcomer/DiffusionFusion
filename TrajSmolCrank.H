@@ -222,8 +222,9 @@ private:
     public:
   // We overload deltaCost so that we can precompute the Smoluchowski solution.
   virtual double deltaCost(const TrialMove& trialMove) {
-    IndexList region = nodeRegion(trialMove.node);
-    
+    int node = refField->nearestNode(trialMove.pos.x);
+    IndexList region = nodeRegion(node);
+
     // Solve the Smoluchowski equation for each node in the region.
 #pragma omp parallel for
     for (int i = 0; i < region.length(); i++) {

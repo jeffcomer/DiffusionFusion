@@ -79,7 +79,7 @@ public:
   void eventVarShortcuts() {
     T = eventIndList[0];
     X = eventIndList[1];
-    for (int i = 0; i < 2; i++) printf("eventIndList[%d] = %d\n", i, eventIndList[i]);
+    //for (int i = 0; i < 2; i++) printf("eventIndList[%d] = %d\n", i, eventIndList[i]);
   }
   // Event variables.
   String eventVarName(int ind) const {

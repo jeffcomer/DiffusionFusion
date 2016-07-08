@@ -17,6 +17,8 @@
 #include "useful.H"
 
 class Field {
+public:
+  static const int maxDim = 4;
 protected:
   double* v0;
   double* err;
@@ -180,6 +182,8 @@ public:
   virtual int nearestNode(const double* pos) const = 0;
   // The nearest node with all coordinates less than those of pos.
   virtual int getNode(const double* pos) const = 0;
+  // Get the position of a node along dimension dim.
+  virtual double nodePos(int j, int dim) const = 0;
   // The integral of the field.
   virtual bool writeIntegral(const String& fileName, double scale) const = 0;
   // The log of the field.
@@ -195,7 +199,10 @@ public:
   virtual Field* map(const Field* srcVal) const = 0;
   // Check that 'srcVal' is at least as big as '*this'.
   virtual bool spannedBy(const Field* srcVal) const = 0;
-  
+
+  // How many dimensions does the field have?
+  virtual int dimensions() const = 0;
+
 protected:
   // Let PiecewiseCubic take care of all of the initialization.
   Field() {}

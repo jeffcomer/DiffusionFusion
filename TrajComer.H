@@ -61,7 +61,7 @@ public:
     X = eventIndList[1];
     D = eventIndList[2];
     FB = eventIndList[3];
-    for (int i = 0; i < 4; i++) printf("eventIndList[%d] = %d\n", i, eventIndList[i]);
+    //for (int i = 0; i < 4; i++) printf("eventIndList[%d] = %d\n", i, eventIndList[i]);
   }
   // Event variables.
   String eventVarName(int ind) const {

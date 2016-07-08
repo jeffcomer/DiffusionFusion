@@ -122,7 +122,7 @@ public:
   void eventVarShortcuts() {
     T = eventIndList[0];
     X = eventIndList[1];
-    for (int i = 0; i < 2; i++) printf("eventIndList[%d] = %d\n", i, eventIndList[i]);
+    //for (int i = 0; i < 2; i++) printf("eventIndList[%d] = %d\n", i, eventIndList[i]);
   }
    // Event variables.
   String eventVarName(int ind) const {
@@ -219,7 +219,8 @@ private:
     public:
   // We overload deltaCost so that we can precompute the Smoluchowski solution.
   virtual double deltaCost(const TrialMove& trialMove) {
-    IndexList region = nodeRegion(trialMove.node);
+    int node = refField->nearestNode(trialMove.pos.x);
+    IndexList region = nodeRegion(node);
     
     // Solve the Smoluchowski equation for each node in the region.
 #pragma omp parallel for

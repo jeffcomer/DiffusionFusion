@@ -35,7 +35,7 @@ void calcCurrent(PiecewiseCubic& curr, const PiecewiseCubic& prob, const Piecewi
 
 void calcResistivity(PiecewiseCubic& resisty, const PiecewiseCubic& prob, const PiecewiseCubic& diffuse, const PiecewiseCubic& force, double kT) {
   for (int i = 0; i < resisty.length(); i++) {
-    double x = resisty.nodePos(i);
+    double x = resisty.getNodePos(i);
     double conc, gradConc;
 
     prob.computeValGrad(x,conc,gradConc);

@@ -22,7 +22,7 @@
 
 void calcCurrent(PiecewiseCubic& curr, const PiecewiseCubic& prob, const PiecewiseCubic& diffuse, const PiecewiseCubic& force, double kT) {
   for (int i = 0; i < curr.length(); i++) {
-    double x = curr.nodePos(i);
+    double x = curr.getNodePos(i);
     double conc, gradConc;
 
     prob.computeValGrad(x,conc,gradConc);

@@ -126,7 +126,15 @@ public:
     trialLastVal = currVal;
     mcField[trialField]->set(trialNode, trialVal);
 
-    return TrialMove(mcFieldDesc[trialField]->id, trialNode, trialVal, trialLastVal);
+    Vector3 trialPos(0.0);
+    // Limitation: Only the first three dimensions of the position are kept.
+    trialPos.x = mcField[trialField]->nodePos(trialNode, 0);
+    if ( mcField[trialField]->dimensions() >= 2 )  
+      trialPos.y = mcField[trialField]->nodePos(trialNode, 1);
+    if ( mcField[trialField]->dimensions() >= 3 )  
+      trialPos.z = mcField[trialField]->nodePos(trialNode, 2);
+
+    return TrialMove(mcFieldDesc[trialField]->id, trialNode, trialVal, trialLastVal, trialPos);
   }
 
   void reject() {

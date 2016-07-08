@@ -441,6 +441,15 @@ public:
     hy = getPosY(iy);
     return iy + ny*ix;
   }
+
+  virtual double nodePos(int j, int dim) const {
+    // dim should be 0 or 1.
+    if (dim == 1) 
+      return getPosY(indexY(j));
+    else 
+      return getPosX(indexX(j));
+  }
+
   inline double getPosX(int ix) const { return ix*dx + x0; }
   inline double getPosY(int iy) const { return iy*dy + y0; }
   inline int index(int ix, int iy) const { return iy + ny*ix; }
@@ -551,6 +560,8 @@ public:
     if (y1 - dy > src->y1) return false;
     return true;
   }
+
+  virtual int dimensions() const { return 2; }
 
   bool writeIntegral(const String& fileName, double scale) const {
     return true;

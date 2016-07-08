@@ -10,6 +10,8 @@
 // You should have received a copy of the GNU General Public License along with DiffusionFusion. If not, see http://www.gnu.org/licenses/.
 // A struct with all public members for holding a descriptor of a node.
 // Author: Jeff Comer <jeffcomer at gmail>
+#include "useful.H"
+
 #ifndef TRIALMOVE_H
 #define TRIALMOVE_H
 
@@ -17,9 +19,10 @@ struct TrialMove {
   int fieldId;
   int node;
   double trialVal, lastVal;
+  Vector3 pos;
   TrialMove() {}
-  TrialMove(int id, int n, double tv, double lv) :
-  fieldId(id), node(n), trialVal(tv), lastVal(lv) {
-  }
+  TrialMove(int id, int n, double tv, double lv, Vector3 pos0) :
+    fieldId(id), node(n), trialVal(tv), lastVal(lv), pos(pos0) {
+   }
 };
 #endif

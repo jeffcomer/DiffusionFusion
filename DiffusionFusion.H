@@ -1577,13 +1577,12 @@ private:
     if (tcd.group >= 0) printf("  group %d\n", tcd.group);
 
     printf("  leastLocalField %d \"%s\" \n", tcd.leastLocal, fieldDesc[tcd.leastLocal].name.cs());
-    printf("\n");
 
     // Fill the array to know which fields are relevant.
     for (int f = 0; f < fieldNum; f++) {
       if (tcd.fieldSel.find(f) >= 0) tcFieldOn[tc][f] = true;
       else tcFieldOn[tc][f] = false;
-      printf("trajCost %d field %d %s\n", tc, f, tcFieldOn[tc][f]?"on":"off");
+      //printf("trajCost %d field %d %s\n", tc, f, tcFieldOn[tc][f]?"on":"off");
     }
 
     printf("INITIAL_TRAJCOST %d %.15g\n", tc, trajCostList[tc]->calcCost());
