@@ -233,8 +233,9 @@ private:
 
   // We overload revert so that we can recompute the Smoluchowski solution.
   virtual void revert(const TrialMove& trialMove) {
-    IndexList region = nodeRegion(trialMove.node);
-    
+    int node = refField->nearestNode(trialMove.pos.x);
+    IndexList region = nodeRegion(node);
+
     // Re-solve the Smoluchowski equation for each node in the region.
 #pragma omp parallel for
     for (int i = 0; i < region.length(); i++) {
