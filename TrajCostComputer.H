@@ -39,6 +39,7 @@ protected:
   int eventStart;
   int eventEnd;
   int group;
+  double weight;
 
 public:
   // Store variables which can be used to reconstruct gt.
@@ -57,6 +58,7 @@ public:
     }
     leastLocalNodes = leastLocalField->length();
 
+    weight = tcd.weight;
     group = tcd.group;
     if (group < 0) {
       // Just select all events.
@@ -129,6 +131,7 @@ public:
     eventVarShortcuts();
   }
 
+  double getWeight() const { return weight; }
   int getEventNum() const { return eventEnd - eventStart + 1; }
   int getTrajVarMin() const { return trajVarMin; }
   int eventVarIndex(int i) const {
@@ -163,7 +166,7 @@ public:
     long double cost = 0.0;
 #pragma omp parallel for reduction(+:cost)
     for (int e = eventStart; e <= eventEnd; e++) cost += eventCost(e);
-    return cost;
+    return weight*cost;
   }
 
   // Calculate the change in cost using the LocalCost array.
@@ -195,7 +198,7 @@ public:
 	dc += currCost - local[j].lastCost;
       }
     
-      return dc;
+      return weight*dc;
   }
 
   inline int tcField(int id) const { return fieldSel.find(id); }
@@ -233,7 +236,7 @@ public:
       cost += currCost;
     }
 
-    return cost;
+    return weight*cost;
   }
 
   // Make the last cost the current cost.

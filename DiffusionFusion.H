@@ -383,7 +383,7 @@ public:
     fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -tol relErrMax -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
     //fprintf(stdout, "\ntrajCost ccg|ccgPmf|ccg2d|reflect|reflect2d|smolCrank|smolCrankBias|fracSmolCrank|smolCrankDual|fracSmolCrankDual|langevinExp|smoluchowski|simpleSmol|reflectSmol field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-timestep timestep] [-hop maxHop] [-dim primaryDimension] [-group group]\n");
 
-    fprintf(stdout, "\ntrajCost ccg|reflect|ccg2d|reflect2d|smolCrank|fracSmolCrank field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-timestep timestep] [-hop maxHop] [-dim primaryDimension] [-group group]\n");
+    fprintf(stdout, "\ntrajCost ccg|reflect|ccg2d|reflect2d|smolCrank|fracSmolCrank field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-timestep timestep] [-hop maxHop] [-dim primaryDimension] [-group groupIndex] [-weight costMultiplier]\n");
     fprintf(stdout, "\ndump events|fields|distro|best|eventCost|bias dumpFile\n");
     fprintf(stdout, "\t*Note: A '%%' in dumpFile is substituted with 'output'.\n");
   }
@@ -489,9 +489,8 @@ public:
 	  // Trajectory cost.
 	  // Calculate the change only locally.
 	  double deltaCost = 0.0;
-
-	  // We need not update trajCostComputers that don't depend the field.
 	  for (int tc = 0; tc < trajCostNum; tc++) {
+	    // We need not update trajCostComputers that don't depend the field.
 	    if (tcFieldOn[tc][trialMove.fieldId])
 	      deltaCost += trajCostList[tc]->deltaCost(trialMove);
 	  }
@@ -1380,6 +1379,7 @@ private:
       else if (opt == "hop") tcd.maxHop = strtod(val, NULL);
       else if (opt == "dim") tcd.dimension = atoi(val);
       else if (opt == "group") tcd.group = atoi(val);
+      else if (opt == "weight") tcd.weight = strtod(val, NULL);
       else if (opt == "leastLocal") {
 	// Find the field that correpsponds to the given name.
 	int f;

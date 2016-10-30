@@ -30,10 +30,11 @@ public:
   int dimension; // Dimension along which we compute the displacement
   double timestep; // Timestep of Smoluchowski integration
   double maxHop; // Largest number of nodes hopped in a Smoluchowski solution (time delta t)
+  double weight; // Multiply the cost by this factor
 
   TrajCostDesc(Field** fieldList0, Event* event0, int eventNum0) :
     fieldList(fieldList0), event(event0), eventNum(eventNum0), kbt(1.0), 
-    leastLocal(-1), group(0), dimension(-1), timestep(-1.0), maxHop(-1.0)
+    leastLocal(-1), group(0), dimension(-1), timestep(-1.0), maxHop(-1.0), weight(1.0)
   {
   }
 private:
