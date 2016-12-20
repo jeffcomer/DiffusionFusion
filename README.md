@@ -20,17 +20,17 @@ Installation
 ------------
 
 You need the Gnu Scientific Library development package installed (for random numbers). Here is the Ubuntu package, which may or may not help you:
-$ sudo apt-get install gsl-bin libgsl0-dev
+> sudo apt-get install gsl-bin libgsl0-dev
 
 You may also have to install OpenMP support for g++ (multithreading). Here is the Ubuntu package, which may or may not help you:
-$ sudo apt-get install libgomp
+> sudo apt-get install libgomp
 
 
 Then try:
-make
+> make
 
 On a Mac, this might work better:
-make mac
+> make mac
 
 Just running diffusion fusion with no parameters will give you the usage information.
 
