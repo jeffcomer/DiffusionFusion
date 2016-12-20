@@ -1,0 +1,27 @@
+output output/abfY_etoh_6may
+dump distro %.gt.hist
+dump best %.best
+#dump events %.events
+
+trajectory -time t -col 0 -coor z -col 1 -force fz -col 2 -coor theta -col 3 -force ft -col 4
+
+load Data/dt8ps_abf_-16_16_popc_etoh.1.traj -minVar z -minVal -14 -maxVar z -maxVal 14 -stride 1
+load Data/dt8ps_abf_-16_16_popc_etoh.2.traj -minVar z -minVal -14 -maxVar z -maxVal 14 -stride 1
+load Data/dt8ps_abf_-24_8_popc_etoh.0.traj -minVar z -minVal -22 -maxVar z -maxVal 6 -stride 1
+load Data/dt8ps_abf_-32_0_popc_etoh.1.traj -minVar z -minVal -30 -maxVar z -maxVal -2 -stride 1
+load Data/dt8ps_abf_-32_0a_popc_etoh.1.traj -minVar z -minVal -30 -maxVar z -maxVal -2 -stride 1
+load Data/dt8ps_abf_-8_24_popc_etoh.1.traj -minVar z -minVal -6 -maxVar z -maxVal 22 -stride 1
+load Data/dt8ps_abf_0_32_popc_etoh.1.traj -minVar z -minVal 2 -maxVar z -maxVal 30 -stride 1
+load Data/dt8ps_abf_0_32a_popc_etoh.1.traj -minVar z -minVal 2 -maxVar z -maxVal 30 -stride 1
+load Data/dt8ps_abf_0_32a_popc_etoh.2.traj -minVar z -minVal 2 -maxVar z -maxVal 30 -stride 1
+load Data/dt8ps_abf_28_44_popc_etoh.0.traj -minVar z -minVal 30 -maxVar z -maxVal 42 -stride 1
+
+field diffuseY bicubic -step 500 -minVal 10 -f init_2d_100000.dx
+field forceY bicubic -step 0.1 -f init_2d_zero.dx
+
+prior scale diffuseY
+prior smooth diffuseY -grad 10000
+prior smooth forceY -grad 5
+
+trajCost ccg2d diffuseY forceY -time t -posX z -posY theta -displacement theta -forceBias ft -kt 0.6120596 -dim 1
+mc diffuseY forceY -n 500 -preview 100 -output 20 -update 20
