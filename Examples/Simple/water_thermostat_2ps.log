@@ -1,0 +1,1060 @@
+*****DiffusionFusion*****
+Written by Jeff Comer <jeffcomer at gmail dot com>
+Implementation of a Bayesian inference scheme for calculating position-dependent diffusivities and free-energy landscapes from MD trajectories.
+The approach is described in Comer, Chipot and Gonzalez-Nilo (2013) J. Chem. Theory Comput., 9(2) pp 876-882.
+
+OMP: Number of OpenMP threads was set to 6.
+Threads: 6
+Threads: 6
+Threads: 6
+Threads: 6
+Threads: 6
+Threads: 6
+Read 13 commands from `water_thermostat_2ps.fusion'.
+Organizing commands.
+outputPrefix output/water_thermostat_2ps
+
+COMMAND_COUNT
+  load 2
+  loadMany 0
+  loadEvents 0
+  field 2
+  prior 3
+  solver 0
+  mc 1
+  trajCost 1
+  dump 2
+
+Loading the trajectory files.
+There are 3 trajectory variables.
+trajectory (z 1) (t 0) (fz 3)
+We will load a total of 2 trajectory files.
+TRAJFILENUM 2
+We will load a total of 0 event files.
+EVENTFILENUM 0
+
+Counting file lines:
+file thermostat0.colvars.traj lines 10001
+file thermostat1.colvars.traj lines 12751
+Maximum number of events 22755
+
+
+Reading trajectory files:
+trajFile thermostat0.colvars.traj events 9998 first 0 last 9997
+trajFile thermostat1.colvars.traj events 12748 first 9998 last 22745
+
+Reading event files:
+0 trajectory files have an associated bias history.
+
+EVENT STATISTICS
+EVENTNUM 22746
+  VARIABLE z min -14.2673 max 14.2676 mean -0.140109 std 8.19796
+  DELTA z min -6.95158 max 6.80689 mean -0.0519663 std 1.2212
+  VARIABLE t min 0.002 max 45.498 mean 22.7504 std 13.1353
+  DELTA t min 0.002 max 0.002 mean 0.002 std -nan
+  VARIABLE fz min -3.01285 max 2.38923 mean -0.0505857 std 0.90996
+  DELTA fz min -3.54257 max 3.24962 mean 8.75822e-05 std 0.85818
+
+Preparing fields.
+Loading field diffuse from input file `init_twoHundred.dat'
+Loading field force from input file `init_zero.dat'
+
+FIELDS
+  field diffuse type cubic step 3 file init_twoHundred.dat minVal 0.1 periodic
+  field force type cubic step 0.3 file init_zero.dat periodic
+
+PRIORS
+  prior scale diffuse
+  prior smooth diffuse gradientStandardDev 20 gradientDimension 0
+  prior smooth force gradientStandardDev 10 gradientDimension 0
+INITIAL_PRIOR_COST 0 317.899041992882
+INITIAL_PRIOR_COST 1 0
+INITIAL_PRIOR_COST 2 0
+
+
+MONTE CARLO field 0 diffuse field 1 force
+Random seed 1415745675
+MC fields: 2
+MC field nodes: 120
+MC local fields: 2
+MC steps per cycle: 120
+Period for attempting moves with global fields: 10
+Period for writing output trajectory: 100
+Period for writing preview files: 200
+Period for calculating statistics: 20
+Maximum permitted error between the locally accumulated cost and the global cost: 0.001
+eventIndList[0] = 1
+eventIndList[1] = 0
+eventIndList[2] = 0
+eventIndList[3] = 2
+
+TRAJCOST ccg
+  field 0 diffusivity "diffuse"
+  field 1 force "force"
+  var 0 time "t"
+  var 1 pos "z"
+  var 2 displacement "z"
+  var 3 forceBias "fz"
+  kT 0.61205887
+  leastLocalField 0 "diffuse" 
+
+trajCost 0 field 0 on
+trajCost 0 field 1 on
+INITIAL_TRAJCOST 0 44253.901855442
+
+Done with initialization of DiffusionFusion object.
+Running...
+INITIAL_COST 44571.8008974349
+
+cycle 20
+  steps 2400
+  updateTime 0.2668
+  stepTime 0.0001112
+  acceptRatio diffuse 0.58
+  acceptRatio force 0.306
+  acceptRatio TOTAL 0.443
+  costMin 38855.1700798793
+  costMean 40377.0921574263
+  costStd 1556.89391094929
+  costTraj 0 38435.2154655125
+  costPrior 0 323.195827902725
+  costPrior 1 96.3613191114805
+  costPrior 2 0.397467352591275
+  cost 38855.1700798793
+  costUpdate 38855.1700798793
+  costErr -3.63797880709171e-11
+  costRelErr 2.33669024042461e-14
+
+cycle 40
+  steps 2400
+  updateTime 0.2661
+  stepTime 0.0001109
+  acceptRatio diffuse 0.605
+  acceptRatio force 0.237
+  acceptRatio TOTAL 0.422
+  costMin 37895.1030481917
+  costMean 38324.427123041
+  costStd 262.631588149563
+  costTraj 0 37466.7918952055
+  costPrior 0 329.095687812838
+  costPrior 1 98.8812001452202
+  costPrior 2 0.334265028125722
+  cost 37895.1030481917
+  costUpdate 37895.1030481917
+  costErr -5.0931703299284e-11
+  costRelErr 1.93928322400729e-13
+
+cycle 60
+  steps 2400
+  updateTime 0.2568
+  stepTime 0.000107
+  acceptRatio diffuse 0.648
+  acceptRatio force 0.195
+  acceptRatio TOTAL 0.422
+  costMin 37333.6994630456
+  costMean 37560.0435066442
+  costStd 158.844700602194
+  costTraj 0 36920.752061546
+  costPrior 0 333.237979827498
+  costPrior 1 79.4101597168137
+  costPrior 2 0.299261955381419
+  cost 37333.6994630456
+  costUpdate 37333.6994630457
+  costErr -8.00355337560177e-11
+  costRelErr 5.03860270141817e-13
+
+cycle 80
+  steps 2400
+  updateTime 0.2566
+  stepTime 0.0001069
+  acceptRatio diffuse 0.646
+  acceptRatio force 0.21
+  acceptRatio TOTAL 0.426
+  costMin 37078.6746142237
+  costMean 37190.0110842804
+  costStd 78.0800253426821
+  costTraj 0 36668.8312705755
+  costPrior 0 335.821370723088
+  costPrior 1 78.0919507046532
+  costPrior 2 0.309791569542269
+  cost 37083.0543835728
+  costUpdate 37083.0543835727
+  costErr 8.00355337560177e-11
+  costRelErr 1.02504492544352e-12
+
+cycle 100
+  steps 2400
+  updateTime 0.2572
+  stepTime 0.0001072
+  acceptRatio diffuse 0.667
+  acceptRatio force 0.213
+  acceptRatio TOTAL 0.445
+  costMin 36973.4612287841
+  costMean 37033.9650768182
+  costStd 31.5386355833499
+  costTraj 0 36553.2555820196
+  costPrior 0 337.527785312363
+  costPrior 1 83.4452368700387
+  costPrior 2 0.277926804475482
+  cost 36974.5065310065
+  costUpdate 36974.5065310065
+  costErr -1.45519152283669e-11
+  costRelErr 4.61399643935428e-13
+
+cycle 120
+  steps 2400
+  updateTime 0.256
+  stepTime 0.0001067
+  acceptRatio diffuse 0.647
+  acceptRatio force 0.204
+  acceptRatio TOTAL 0.421
+  costMin 36835.5605920516
+  costMean 36902.530048065
+  costStd 42.8926337649291
+  costTraj 0 36432.7408124082
+  costPrior 0 339.528039367291
+  costPrior 1 63.0069663137406
+  costPrior 2 0.284773962392317
+  cost 36835.5605920516
+  costUpdate 36835.5605920516
+  costErr 2.18278728425503e-11
+  costRelErr 5.08895605762445e-13
+
+cycle 140
+  steps 2400
+  updateTime 0.2563
+  stepTime 0.0001068
+  acceptRatio diffuse 0.668
+  acceptRatio force 0.202
+  acceptRatio TOTAL 0.435
+  costMin 36781.4260799691
+  costMean 36806.602029738
+  costStd 17.0606340351987
+  costTraj 0 36374.8016968645
+  costPrior 0 340.793695762721
+  costPrior 1 65.7926116800367
+  costPrior 2 0.273034753158963
+  cost 36781.6610390604
+  costUpdate 36781.6610390604
+  costErr 2.91038304567337e-11
+  costRelErr 1.70590555993922e-12
+
+cycle 160
+  steps 2400
+  updateTime 0.2561
+  stepTime 0.0001067
+  acceptRatio diffuse 0.676
+  acceptRatio force 0.199
+  acceptRatio TOTAL 0.434
+  costMin 36722.9158576591
+  costMean 36752.1384616121
+  costStd 18.7313982330038
+  costTraj 0 36317.1077521996
+  costPrior 0 342.34810886587
+  costPrior 1 63.787548922827
+  costPrior 2 0.291194383675364
+  cost 36723.534604372
+  costUpdate 36723.534604372
+  costErr 7.27595761418343e-12
+  costRelErr 3.88436438309424e-13
+
+cycle 180
+  steps 2400
+  updateTime 0.2559
+  stepTime 0.0001066
+  acceptRatio diffuse 0.657
+  acceptRatio force 0.201
+  acceptRatio TOTAL 0.426
+  costMin 36672.9323694053
+  costMean 36699.6014614536
+  costStd 14.9361087891368
+  costTraj 0 36261.4006877224
+  costPrior 0 343.149318232176
+  costPrior 1 68.491322151488
+  costPrior 2 0.304705520972713
+  cost 36673.3460336271
+  costUpdate 36673.3460336271
+  costErr 1.45519152283669e-11
+  costRelErr 9.74277533312468e-13
+
+cycle 200
+  steps 2400
+  updateTime 0.2557
+  stepTime 0.0001066
+  acceptRatio diffuse 0.661
+  acceptRatio force 0.209
+  acceptRatio TOTAL 0.428
+  costMin 36663.1627126385
+  costMean 36670.6518550324
+  costStd 3.2892576444628
+  costTraj 0 36248.1142462376
+  costPrior 0 343.834008378155
+  costPrior 1 74.5195198187792
+  costPrior 2 0.281933664713512
+  cost 36666.7497080991
+  costUpdate 36666.7497080992
+  costErr -9.45874489843845e-11
+  costRelErr 2.87564731037762e-11
+
+cycle 220
+  steps 2400
+  updateTime 0.2562
+  stepTime 0.0001068
+  acceptRatio diffuse 0.672
+  acceptRatio force 0.201
+  acceptRatio TOTAL 0.438
+  costMin 36629.7631393364
+  costMean 36649.0111910177
+  costStd 13.4645661296754
+  costTraj 0 36230.0918229409
+  costPrior 0 344.954400939198
+  costPrior 1 55.229513846738
+  costPrior 2 0.28464458708185
+  cost 36630.5603823138
+  costUpdate 36630.5603823139
+  costErr -9.45874489843845e-11
+  costRelErr 7.02491621886851e-12
+
+cycle 240
+  steps 2400
+  updateTime 0.2557
+  stepTime 0.0001066
+  acceptRatio diffuse 0.648
+  acceptRatio force 0.2
+  acceptRatio TOTAL 0.42
+  costMin 36629.3112059581
+  costMean 36643.4466524709
+  costStd 5.73270456466033
+  costTraj 0 36229.9303569113
+  costPrior 0 345.556098896399
+  costPrior 1 64.879890349918
+  costPrior 2 0.303073788795756
+  cost 36640.6694199464
+  costUpdate 36640.6694199464
+  costErr 2.18278728425503e-11
+  costRelErr 3.80760469972756e-12
+
+cycle 260
+  steps 2400
+  updateTime 0.2569
+  stepTime 0.000107
+  acceptRatio diffuse 0.644
+  acceptRatio force 0.197
+  acceptRatio TOTAL 0.423
+  costMin 36629.3112059581
+  costMean 36639.1469944667
+  costStd 3.91159141372268
+  costTraj 0 36237.4239220504
+  costPrior 0 345.733717215239
+  costPrior 1 64.5397373489114
+  costPrior 2 0.298985599864968
+  cost 36647.9963622144
+  costUpdate 36647.9963622145
+  costErr -5.0931703299284e-11
+  costRelErr 1.30207114988045e-11
+
+cycle 280
+  steps 2400
+  updateTime 0.2558
+  stepTime 0.0001066
+  acceptRatio diffuse 0.659
+  acceptRatio force 0.193
+  acceptRatio TOTAL 0.425
+  costMin 36629.3112059581
+  costMean 36640.2945208387
+  costStd 4.72497985922107
+  costTraj 0 36218.0520551564
+  costPrior 0 345.86448264258
+  costPrior 1 70.3985447607501
+  costPrior 2 0.301867431012481
+  cost 36634.6169499908
+  costUpdate 36634.6169499907
+  costErr 3.63797880709171e-11
+  costRelErr 7.69945886645841e-12
+
+cycle 300
+  steps 2400
+  updateTime 0.2562
+  stepTime 0.0001068
+  acceptRatio diffuse 0.667
+  acceptRatio force 0.2
+  acceptRatio TOTAL 0.433
+  costMin 36609.1424341554
+  costMean 36624.2652174706
+  costStd 5.88856883283702
+  costTraj 0 36194.3012103121
+  costPrior 0 346.499209925889
+  costPrior 1 70.8373223494362
+  costPrior 2 0.273122711797687
+  cost 36611.9108652991
+  costUpdate 36611.9108652992
+  costErr -1.09139364212751e-10
+  costRelErr 1.85341068960843e-11
+
+cycle 320
+  steps 2400
+  updateTime 0.2555
+  stepTime 0.0001065
+  acceptRatio diffuse 0.636
+  acceptRatio force 0.204
+  acceptRatio TOTAL 0.42
+  costMin 36607.9057476764
+  costMean 36618.0793979761
+  costStd 6.19546513575524
+  costTraj 0 36209.4092375326
+  costPrior 0 346.726208501613
+  costPrior 1 65.8508240418485
+  costPrior 2 0.282138021733515
+  cost 36622.2684080979
+  costUpdate 36622.2684080978
+  costErr 5.82076609134674e-11
+  costRelErr 9.3952043370464e-12
+
+cycle 340
+  steps 2400
+  updateTime 0.2566
+  stepTime 0.0001069
+  acceptRatio diffuse 0.664
+  acceptRatio force 0.194
+  acceptRatio TOTAL 0.436
+  costMin 36601.8108829575
+  costMean 36612.4544421598
+  costStd 3.94405236590998
+  costTraj 0 36197.0268723966
+  costPrior 0 347.452922087854
+  costPrior 1 71.7615146942717
+  costPrior 2 0.305441094539703
+  cost 36616.5467502733
+  costUpdate 36616.5467502733
+  costErr 0
+  costRelErr 0
+
+cycle 360
+  steps 2400
+  updateTime 0.256
+  stepTime 0.0001067
+  acceptRatio diffuse 0.675
+  acceptRatio force 0.192
+  acceptRatio TOTAL 0.436
+  costMin 36601.5176598566
+  costMean 36611.602448424
+  costStd 3.69077274804153
+  costTraj 0 36201.5020930422
+  costPrior 0 347.920939594713
+  costPrior 1 67.3387351327975
+  costPrior 2 0.288616512415855
+  cost 36617.0503842822
+  costUpdate 36617.0503842821
+  costErr 2.91038304567337e-11
+  costRelErr 7.88556555593334e-12
+
+cycle 380
+  steps 2400
+  updateTime 0.2562
+  stepTime 0.0001068
+  acceptRatio diffuse 0.651
+  acceptRatio force 0.194
+  acceptRatio TOTAL 0.418
+  costMin 36601.5176598566
+  costMean 36619.627884877
+  costStd 4.10724568240869
+  costTraj 0 36189.9200115051
+  costPrior 0 347.999803337771
+  costPrior 1 76.1756716916593
+  costPrior 2 0.282083788765034
+  cost 36614.3775703233
+  costUpdate 36614.3775703233
+  costErr 0
+  costRelErr 0
+
+cycle 400
+  steps 2400
+  updateTime 0.2563
+  stepTime 0.0001068
+  acceptRatio diffuse 0.648
+  acceptRatio force 0.188
+  acceptRatio TOTAL 0.417
+  costMin 36600.076171106
+  costMean 36613.2977747022
+  costStd 5.8775960002381
+  costTraj 0 36176.7664301605
+  costPrior 0 347.14145617208
+  costPrior 1 83.7779183953705
+  costPrior 2 0.290260730017252
+  cost 36607.976065458
+  costUpdate 36607.976065458
+  costErr -3.63797880709171e-11
+  costRelErr 6.18956935274956e-12
+
+cycle 420
+  steps 2400
+  updateTime 0.2574
+  stepTime 0.0001073
+  acceptRatio diffuse 0.664
+  acceptRatio force 0.204
+  acceptRatio TOTAL 0.432
+  costMin 36591.7104797858
+  costMean 36605.7279408088
+  costStd 6.24627629471797
+  costTraj 0 36187.6078538089
+  costPrior 0 346.981633312409
+  costPrior 1 70.1879831826146
+  costPrior 2 0.277535193928182
+  cost 36605.0550054979
+  costUpdate 36605.0550054979
+  costErr 2.91038304567337e-11
+  costRelErr 4.65938890364884e-12
+
+cycle 440
+  steps 2400
+  updateTime 0.2561
+  stepTime 0.0001067
+  acceptRatio diffuse 0.648
+  acceptRatio force 0.191
+  acceptRatio TOTAL 0.422
+  costMin 36591.7104797858
+  costMean 36614.0658202623
+  costStd 6.16184235473478
+  costTraj 0 36183.9531700199
+  costPrior 0 347.826262052401
+  costPrior 1 89.7206990734239
+  costPrior 2 0.278737656221922
+  cost 36621.778868802
+  costUpdate 36621.7788688019
+  costErr 3.63797880709171e-11
+  costRelErr 5.90404394928455e-12
+
+cycle 460
+  steps 2400
+  updateTime 0.2563
+  stepTime 0.0001068
+  acceptRatio diffuse 0.674
+  acceptRatio force 0.207
+  acceptRatio TOTAL 0.445
+  costMin 36591.7104797858
+  costMean 36619.3374156699
+  costStd 4.29737424389481
+  costTraj 0 36189.151308612
+  costPrior 0 347.746866943871
+  costPrior 1 83.9357440294134
+  costPrior 2 0.292454159648282
+  cost 36621.126373745
+  costUpdate 36621.1263737449
+  costErr 1.45519152283669e-11
+  costRelErr 3.38623410540529e-12
+
+cycle 480
+  steps 2400
+  updateTime 0.2566
+  stepTime 0.0001069
+  acceptRatio diffuse 0.662
+  acceptRatio force 0.201
+  acceptRatio TOTAL 0.435
+  costMin 36591.7104797858
+  costMean 36614.2042322998
+  costStd 7.3752897182233
+  costTraj 0 36201.6513168363
+  costPrior 0 347.420563717878
+  costPrior 1 76.0567143578123
+  costPrior 2 0.27595969428341
+  cost 36625.4045546064
+  costUpdate 36625.4045546063
+  costErr 8.73114913702011e-11
+  costRelErr 1.1838381230566e-11
+
+cycle 500
+  steps 2400
+  updateTime 0.2564
+  stepTime 0.0001068
+  acceptRatio diffuse 0.683
+  acceptRatio force 0.21
+  acceptRatio TOTAL 0.447
+  costMin 36591.7104797858
+  costMean 36619.5358987225
+  costStd 2.62652711750005
+  costTraj 0 36188.5210701803
+  costPrior 0 347.302815285323
+  costPrior 1 89.2225420661591
+  costPrior 2 0.291647799603368
+  cost 36625.3380753314
+  costUpdate 36625.3380753314
+  costErr 7.27595761418343e-12
+  costRelErr 2.7701817985069e-12
+
+cycle 520
+  steps 2400
+  updateTime 0.2565
+  stepTime 0.0001069
+  acceptRatio diffuse 0.659
+  acceptRatio force 0.196
+  acceptRatio TOTAL 0.425
+  costMin 36591.7104797858
+  costMean 36618.1951024886
+  costStd 5.7528578107493
+  costTraj 0 36187.6106093059
+  costPrior 0 347.634126096269
+  costPrior 1 80.9787373777849
+  costPrior 2 0.288683082006946
+  cost 36616.5121558619
+  costUpdate 36616.5121558619
+  costErr -6.54836185276508e-11
+  costRelErr 1.13827980252343e-11
+
+cycle 540
+  steps 2400
+  updateTime 0.2565
+  stepTime 0.0001069
+  acceptRatio diffuse 0.664
+  acceptRatio force 0.18
+  acceptRatio TOTAL 0.42
+  costMin 36591.7104797858
+  costMean 36618.1874163592
+  costStd 4.7221546429549
+  costTraj 0 36188.3634126569
+  costPrior 0 347.274793424246
+  costPrior 1 74.5912680770154
+  costPrior 2 0.298531902978026
+  cost 36610.528006061
+  costUpdate 36610.5280060611
+  costErr -5.0931703299284e-11
+  costRelErr 1.07856915222525e-11
+
+cycle 560
+  steps 2400
+  updateTime 0.2572
+  stepTime 0.0001072
+  acceptRatio diffuse 0.689
+  acceptRatio force 0.19
+  acceptRatio TOTAL 0.438
+  costMin 36591.7104797858
+  costMean 36613.7264322708
+  costStd 6.1806719356042
+  costTraj 0 36178.6230671526
+  costPrior 0 347.151861686769
+  costPrior 1 82.3757005792125
+  costPrior 2 0.285936366946184
+  cost 36608.4365657854
+  costUpdate 36608.4365657855
+  costErr -1.16415321826935e-10
+  costRelErr 1.88353827933038e-11
+
+cycle 580
+  steps 2400
+  updateTime 0.2557
+  stepTime 0.0001066
+  acceptRatio diffuse 0.643
+  acceptRatio force 0.192
+  acceptRatio TOTAL 0.405
+  costMin 36591.7104797858
+  costMean 36609.6982869815
+  costStd 4.64503962500867
+  costTraj 0 36177.865697776
+  costPrior 0 347.333864539853
+  costPrior 1 92.65114369701
+  costPrior 2 0.291947094796644
+  cost 36618.1426531077
+  costUpdate 36618.1426531077
+  costErr 0
+  costRelErr 0
+
+cycle 600
+  steps 2400
+  updateTime 0.2559
+  stepTime 0.0001066
+  acceptRatio diffuse 0.627
+  acceptRatio force 0.18
+  acceptRatio TOTAL 0.397
+  costMin 36591.7104797858
+  costMean 36613.760574965
+  costStd 9.32555281524693
+  costTraj 0 36183.4468005556
+  costPrior 0 347.446653906053
+  costPrior 1 73.9144244823132
+  costPrior 2 0.28415225951327
+  cost 36605.0920312035
+  costUpdate 36605.0920312035
+  costErr 0
+  costRelErr 0
+
+cycle 620
+  steps 2400
+  updateTime 0.2565
+  stepTime 0.0001069
+  acceptRatio diffuse 0.669
+  acceptRatio force 0.18
+  acceptRatio TOTAL 0.422
+  costMin 36591.7104797858
+  costMean 36607.0546581849
+  costStd 4.0863030688975
+  costTraj 0 36190.3233458258
+  costPrior 0 348.250984305355
+  costPrior 1 68.6187259413659
+  costPrior 2 0.275090835734999
+  cost 36607.4681469082
+  costUpdate 36607.4681469082
+  costErr -3.63797880709171e-11
+  costRelErr 8.90286096198258e-12
+
+cycle 640
+  steps 2400
+  updateTime 0.2557
+  stepTime 0.0001066
+  acceptRatio diffuse 0.657
+  acceptRatio force 0.207
+  acceptRatio TOTAL 0.431
+  costMin 36591.7104797858
+  costMean 36608.5250441065
+  costStd 7.67207267958528
+  costTraj 0 36175.6442245412
+  costPrior 0 348.572821798242
+  costPrior 1 85.7967689487815
+  costPrior 2 0.27251485622882
+  cost 36610.2863301445
+  costUpdate 36610.2863301445
+  costErr 5.0931703299284e-11
+  costRelErr 6.63858456852329e-12
+
+cycle 660
+  steps 2400
+  updateTime 0.2568
+  stepTime 0.000107
+  acceptRatio diffuse 0.642
+  acceptRatio force 0.176
+  acceptRatio TOTAL 0.402
+  costMin 36591.7104797858
+  costMean 36612.9998090399
+  costStd 3.5880664240273
+  costTraj 0 36180.5422685548
+  costPrior 0 348.454945181192
+  costPrior 1 82.0047175900539
+  costPrior 2 0.296377997493484
+  cost 36611.2983093236
+  costUpdate 36611.2983093235
+  costErr 8.73114913702011e-11
+  costRelErr 2.43338559134592e-11
+
+cycle 680
+  steps 2400
+  updateTime 0.2563
+  stepTime 0.0001068
+  acceptRatio diffuse 0.681
+  acceptRatio force 0.183
+  acceptRatio TOTAL 0.442
+  costMin 36591.7104797858
+  costMean 36608.7390452924
+  costStd 4.11819722346948
+  costTraj 0 36183.8281619564
+  costPrior 0 347.678464565504
+  costPrior 1 71.947274103651
+  costPrior 2 0.278729663407845
+  cost 36603.732630289
+  costUpdate 36603.7326302889
+  costErr 7.27595761418343e-12
+  costRelErr 1.76678221546019e-12
+
+cycle 700
+  steps 2400
+  updateTime 0.2562
+  stepTime 0.0001068
+  acceptRatio diffuse 0.663
+  acceptRatio force 0.18
+  acceptRatio TOTAL 0.422
+  costMin 36591.7104797858
+  costMean 36609.9217544014
+  costStd 6.07669123060158
+  costTraj 0 36184.545697785
+  costPrior 0 347.651524234616
+  costPrior 1 85.7137668455819
+  costPrior 2 0.273804935365701
+  cost 36618.1847938007
+  costUpdate 36618.1847938006
+  costErr 1.30967237055302e-10
+  costRelErr 2.15523929199766e-11
+
+cycle 720
+  steps 2400
+  updateTime 0.2568
+  stepTime 0.000107
+  acceptRatio diffuse 0.667
+  acceptRatio force 0.193
+  acceptRatio TOTAL 0.431
+  costMin 36591.7104797858
+  costMean 36613.2416001253
+  costStd 4.49677599887444
+  costTraj 0 36180.2178455872
+  costPrior 0 347.180691196271
+  costPrior 1 81.6405936855154
+  costPrior 2 0.27706455425295
+  cost 36609.3161950232
+  costUpdate 36609.3161950232
+  costErr -8.00355337560177e-11
+  costRelErr 1.77984257557083e-11
+
+cycle 740
+  steps 2400
+  updateTime 0.2559
+  stepTime 0.0001066
+  acceptRatio diffuse 0.656
+  acceptRatio force 0.175
+  acceptRatio TOTAL 0.41
+  costMin 36591.7104797858
+  costMean 36615.3745645127
+  costStd 4.47062868878135
+  costTraj 0 36183.8130547369
+  costPrior 0 346.827831574687
+  costPrior 1 86.9562142404091
+  costPrior 2 0.303581754133001
+  cost 36617.9006823061
+  costUpdate 36617.9006823061
+  costErr -2.18278728425503e-11
+  costRelErr 4.88250632340042e-12
+
+cycle 760
+  steps 2400
+  updateTime 0.2563
+  stepTime 0.0001068
+  acceptRatio diffuse 0.66
+  acceptRatio force 0.181
+  acceptRatio TOTAL 0.418
+  costMin 36591.7104797858
+  costMean 36614.8939989409
+  costStd 3.05262872778919
+  costTraj 0 36186.0685759801
+  costPrior 0 347.10644879304
+  costPrior 1 78.489159386119
+  costPrior 2 0.280082205664804
+  cost 36611.944266365
+  costUpdate 36611.944266365
+  costErr 6.54836185276508e-11
+  costRelErr 2.14515502430838e-11
+
+cycle 780
+  steps 2400
+  updateTime 0.2561
+  stepTime 0.0001067
+  acceptRatio diffuse 0.657
+  acceptRatio force 0.16
+  acceptRatio TOTAL 0.407
+  costMin 36591.7104797858
+  costMean 36611.0579629205
+  costStd 4.75077926213454
+  costTraj 0 36175.3225981638
+  costPrior 0 347.160981615134
+  costPrior 1 86.6627718856109
+  costPrior 2 0.285299034285729
+  cost 36609.4316506988
+  costUpdate 36609.4316506988
+  costErr 0
+  costRelErr 0
+
+cycle 800
+  steps 2400
+  updateTime 0.2558
+  stepTime 0.0001066
+  acceptRatio diffuse 0.673
+  acceptRatio force 0.176
+  acceptRatio TOTAL 0.43
+  costMin 36591.7104797858
+  costMean 36609.7535906131
+  costStd 4.64710756111887
+  costTraj 0 36181.0965986083
+  costPrior 0 347.337537791951
+  costPrior 1 85.4400285396584
+  costPrior 2 0.27895848414161
+  cost 36614.1531234242
+  costUpdate 36614.1531234241
+  costErr 8.73114913702011e-11
+  costRelErr 1.878835172672e-11
+
+cycle 820
+  steps 2400
+  updateTime 0.2567
+  stepTime 0.000107
+  acceptRatio diffuse 0.644
+  acceptRatio force 0.169
+  acceptRatio TOTAL 0.42
+  costMin 36591.7104797858
+  costMean 36610.8824405238
+  costStd 6.56231117852969
+  costTraj 0 36177.1001046857
+  costPrior 0 347.422780565699
+  costPrior 1 74.7572043604191
+  costPrior 2 0.294233196906492
+  cost 36599.5743228086
+  costUpdate 36599.5743228087
+  costErr -8.73114913702011e-11
+  costRelErr 1.33049910305783e-11
+
+cycle 840
+  steps 2400
+  updateTime 0.2567
+  stepTime 0.000107
+  acceptRatio diffuse 0.671
+  acceptRatio force 0.192
+  acceptRatio TOTAL 0.427
+  costMin 36591.7104797858
+  costMean 36612.6765004307
+  costStd 9.48332769624967
+  costTraj 0 36175.8809587883
+  costPrior 0 347.432861137698
+  costPrior 1 92.4360879660654
+  costPrior 2 0.27878586464067
+  cost 36616.0286937568
+  costUpdate 36616.0286937567
+  costErr 7.27595761418343e-11
+  costRelErr 7.67236759841255e-12
+
+cycle 860
+  steps 2400
+  updateTime 0.2558
+  stepTime 0.0001066
+  acceptRatio diffuse 0.667
+  acceptRatio force 0.188
+  acceptRatio TOTAL 0.431
+  costMin 36591.7104797858
+  costMean 36614.1252945241
+  costStd 5.6593604420018
+  costTraj 0 36190.9256664244
+  costPrior 0 347.561761338841
+  costPrior 1 82.8740084352448
+  costPrior 2 0.301574084844832
+  cost 36621.6630102832
+  costUpdate 36621.6630102833
+  costErr -8.73114913702011e-11
+  costRelErr 1.54278018276068e-11
+
+cycle 880
+  steps 2400
+  updateTime 0.257
+  stepTime 0.0001071
+  acceptRatio diffuse 0.66
+  acceptRatio force 0.2
+  acceptRatio TOTAL 0.432
+  costMin 36591.7104797858
+  costMean 36610.1312100051
+  costStd 5.68163508707322
+  costTraj 0 36189.2012027219
+  costPrior 0 347.912281772997
+  costPrior 1 75.459969099737
+  costPrior 2 0.296533679475473
+  cost 36612.8699872741
+  costUpdate 36612.8699872741
+  costErr 1.45519152283669e-11
+  costRelErr 2.56121961466254e-12
+
+cycle 900
+  steps 2400
+  updateTime 0.2579
+  stepTime 0.0001075
+  acceptRatio diffuse 0.65
+  acceptRatio force 0.195
+  acceptRatio TOTAL 0.426
+  costMin 36591.7104797858
+  costMean 36613.8209405924
+  costStd 5.31659022301225
+  costTraj 0 36178.3071702618
+  costPrior 0 347.734848482003
+  costPrior 1 79.3761986874257
+  costPrior 2 0.282107587391321
+  cost 36605.7003250186
+  costUpdate 36605.7003250186
+  costErr 2.18278728425503e-11
+  costRelErr 4.10561505155519e-12
+
+cycle 920
+  steps 2400
+  updateTime 0.259
+  stepTime 0.0001079
+  acceptRatio diffuse 0.642
+  acceptRatio force 0.214
+  acceptRatio TOTAL 0.427
+  costMin 36591.7104797858
+  costMean 36609.2531197398
+  costStd 7.65540553270905
+  costTraj 0 36192.0071050086
+  costPrior 0 347.912528747984
+  costPrior 1 84.2889191004523
+  costPrior 2 0.294252385172132
+  cost 36624.5028052422
+  costUpdate 36624.5028052423
+  costErr -2.18278728425503e-11
+  costRelErr 2.85130196555713e-12
+
+cycle 940
+  steps 2400
+  updateTime 0.2573
+  stepTime 0.0001072
+  acceptRatio diffuse 0.661
+  acceptRatio force 0.164
+  acceptRatio TOTAL 0.402
+  costMin 36591.7104797858
+  costMean 36615.2799589165
+  costStd 5.89980296209398
+  costTraj 0 36180.8614112857
+  costPrior 0 347.995167257813
+  costPrior 1 84.2591979385818
+  costPrior 2 0.286634080151461
+  cost 36613.4024105625
+  costUpdate 36613.4024105623
+  costErr 2.11002770811319e-10
+  costRelErr 3.57643758896703e-11
+
+cycle 960
+  steps 2400
+  updateTime 0.2611
+  stepTime 0.0001088
+  acceptRatio diffuse 0.661
+  acceptRatio force 0.184
+  acceptRatio TOTAL 0.429
+  costMin 36591.7104797858
+  costMean 36607.8233326849
+  costStd 5.0591209899834
+  costTraj 0 36178.5380184451
+  costPrior 0 348.312429541962
+  costPrior 1 90.8923927281771
+  costPrior 2 0.275007143318551
+  cost 36618.0178478586
+  costUpdate 36618.0178478586
+  costErr 1.45519152283669e-11
+  costRelErr 2.8763722506693e-12
+
+cycle 980
+  steps 2400
+  updateTime 0.2571
+  stepTime 0.0001071
+  acceptRatio diffuse 0.661
+  acceptRatio force 0.19
+  acceptRatio TOTAL 0.428
+  costMin 36591.7104797858
+  costMean 36617.7913178996
+  costStd 4.62427806435987
+  costTraj 0 36187.5608429276
+  costPrior 0 348.121893643669
+  costPrior 1 86.300761649954
+  costPrior 2 0.285233881171625
+  cost 36622.2687321023
+  costUpdate 36622.2687321024
+  costErr -5.0931703299284e-11
+  costRelErr 1.1013979391037e-11
+
+cycle 1000
+  steps 2400
+  updateTime 0.2563
+  stepTime 0.0001068
+  acceptRatio diffuse 0.649
+  acceptRatio force 0.196
+  acceptRatio TOTAL 0.424
+  costMin 36591.7104797858
+  costMean 36610.416128611
+  costStd 7.20711897771511
+  costTraj 0 36171.1358455035
+  costPrior 0 348.62844144757
+  costPrior 1 83.6229410977761
+  costPrior 2 0.28840069912342
+  cost 36603.6756287479
+  costUpdate 36603.6756287479
+  costErr -1.45519152283669e-11
+  costRelErr 2.01910295547532e-12
+Ran 120000 steps.
+
+Run time: 12.99787238 s

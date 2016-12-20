@@ -1,0 +1,2 @@
+awk '{print $1,0}' comer2_tmax40_skip5_abf_lanGrid0.4.diff > init_zero.dat
+awk '{print $1,200}' comer2_tmax40_skip5_abf_lanGrid0.4.diff > init_twoHundred.dat

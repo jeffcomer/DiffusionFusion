@@ -1,0 +1,19 @@
+output output/water_thermostat_2ps
+dump distro %.gt.hist
+dump best %.best
+#dump events %.events
+
+trajectory -time t -col 0 -coor z -col 1 -force fz -col 3
+
+load thermostat0.colvars.traj -periodicVar z -periodicMin -14.26785 -periodicMax 14.26785 -scaleVar t -scaleVal 2e-6 -stride 1
+load thermostat1.colvars.traj -periodicVar z -periodicMin -14.26785 -periodicMax 14.26785 -scaleVar t -scaleVal 2e-6 -stride 1
+
+field diffuse cubic -step 3 -f init_twoHundred.dat -minVal 0.1 -periodic 1
+field force cubic -step 0.1 -f init_zero.dat -outPmf force -periodic 1
+
+prior scale diffuse
+prior smooth diffuse -grad 20
+prior smooth force -grad 10
+
+trajCost ccg diffuse force -time t -pos z -displacement z -forceBias fz -kt 0.61205887 -leastLocal diffuse
+mc diffuse force -n 800 -preview 200 -output 100 -update 20

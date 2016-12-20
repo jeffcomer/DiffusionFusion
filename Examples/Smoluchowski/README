@@ -1,0 +1,24 @@
+# Compile diffusionFusion
+cd DiffusionFusion
+make
+# You will need the GNU Scientific Library for this to work.
+
+cd ..
+# Run diffusionFusion
+../../diffusionFusion smolCoarse_16ps.fusion > smolCoarse_16ps.log
+# This will take 10-15 minutes to run.
+
+# While it's running you can check convergence:
+bash costEvolution.sh smolCoarse_16ps.log
+xmgrace smolCoarse_16ps.costUpdate.dat &
+
+# You can also see what the D(z) profiles are doing as they are written.
+xmgrace smolCoarse_16ps.{0..9}.diffuse &
+
+# When it's done, you can calculate the posterior distribution (best guess for D(z)).
+tclsh metroPosterior.tcl smolCoarse_16ps.traj coarse_oneHundred.dat 1000 1 post_smolCoarse_16ps
+xmgrace post_smolCoarse_16ps.diffuse.dat &
+
+# For fractional diffusivity:
+../../diffusionFusion fracCoarse_16ps.fusion > fracCoarse_16ps.log
+# This is much slower. diffusionFusion will automatically use all cores if you have them. "diffusionFusion -nt 2" sets the number of cores to 2.

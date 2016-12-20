@@ -1,0 +1,129 @@
+# You need the Gnu Scientific Library development package installed
+(for random numbers)
+# Here is the Ubuntu package, which may or may not help you.
+# sudo apt-get install gsl-bin libgsl0-dev
+
+# You may also have to install OpenMP support for g++ (multithreading)
+# Here is the Ubuntu package, which may or may not help you
+# sudo apt-get install libgomp
+
+#### RUN
+cd ../1_water_thermostat
+# Take a look at the diffusionFusion configuration file
+water_thermostat_2ps.fusion
+# I'll explain these commands below.
+# To run it, just do:
+../0_compile/diffusionFusion water_thermostat_2ps.fusion
+# By default, it will use all of your cores. If you want it to
+# use a different number you can specify -nt, as in:
+../0_compile/diffusionFusion -nt 2 water_thermostat_2ps.fusion
+
+#### CHECK
+# You should see some diagnostics as it runs and it should dump some
+output to "output/".
+# When it's done, you can check the PMF with:
+xmgrace energy_lanGrid.shift.dat output/water_thermostat_2ps.best.force.pmf &
+# The diffusivity should be similar (but not identical) to the Hummer
+method result:
+xmgrace humFine_pen8k_skip20.final.diff
+output/water_thermostat_2ps.best.diffuse &
+# If you put the output of diffusionFusion in a file, you can check
+out the convergence of the "cost".
+# In diffusionFusion, cost = -ln(probability).
+../0_compile/diffusionFusion -nt 4 water_thermostat_2ps.fusion >
+water_thermostat_2ps.log &
+./costEvolution.sh  water_thermostat_2ps.log
+xmgrace water_thermostat_2ps.costUpdate.dat &
+
+Okay, so what's in the configuration file? The configuration file
+consists of commands, which can be given in any order. These commands
+have parameters, which are required, and options, which always consist
+of "-option val". The order of the options doesn't matter. There is
+some explanation of the commands and the options if you run
+diffusionFusion with no parameters.
+
+"output" should be obvious.
+
+The "dump" command is for diagnostics. "%" means whatever you put for
+the "output" command.
+
+"trajectory" lets you define what's in your trajectory (usually
+colvars.traj) files.
+trajectory -time t -col 0 -coor z -col 1 -force fz -col 3
+Here I say I have a time-like variable that I'm going to call "t",
+which appears in the input files in column 0. I define "z" as a
+coordinate-like variable that appears in column 1. We get the applied
+force (ABF) and put it in a variable called "fz". If you ran in
+equilibrium, you can do "-force fz -col .", which gives a variable of
+all zeros. The specifications "time" and "force" don't really matter,
+but the program really needs to know which columns are coordinates
+because these correspond with the fields (force and diffusivity)
+below.
+
+"load" lets you load input files. It takes a lot of options, which
+allow you to specify different filters on the data. Here we tell
+diffusionFusion that our trajectories have jumps in the coordinate "z"
+over the periodic boundaries, for which one period is
+[-14.2785,14.2785]. The displacements in z will then be the shortest
+displacement consistent with the periodic boundaries (removing jumps).
+For the coordinate "t", we rescale the timesteps to be a time in
+nanoseconds.
+
+Now we define our two fields, which are in this case called "diffuse"
+and "force". "-step" tells a subsequent "mc" (Monte Carlo) command how
+big of steps it should take on this field. You tweak these to get
+reasonable acceptance ratios (25-60%). We initialize "diffuse" to a
+file containing a bunch of points on the interval  [-14.2785,14.2785]
+all with the value 200. "force" is initialized to zeros. "-outPmf"
+means that although our internal representation is a force, we want to
+integrate the force in the output so that we write both the force and
+pmf. Two dimensional fields are possible.
+
+There is also a "loadMany" command that takes the same options but the
+input file is a newline separated list of trajectory files. This makes
+it easy to load hundreds of files.
+
+"prior" commands define priors on each field. If you make "-grad"
+smaller, it will force the result to be smoother. You are basically
+telling the program that you want to penalize gradients substantially
+more than -grad.
+
+"trajCost" defines how the probability of the trajectory is computed.
+"ccg" is the method as described in Comer, Chipot and Gonzalez. The
+next parameter gives the field that you want to use as the diffusivity
+and the one after that is for the force. The order matters for the
+parameters. Then you have to tell it which variables correspond to
+which parts of the model. Here we calculate the z-diffusivity as a
+function of z with the bias force fz exerted along z. Note that if you
+have the trajectory data, you could calculate the x-diffusivity as a
+function of z quite easily (-pos z -displacement x). "-kt" is k_B T,
+so that your PMF comes out in kcal/mol.
+
+"mc" defines Monte Carlo run. You just list the fields that you want
+to apply Monte Carlo to. "-n" gives the number of cycles, while the
+other options control the output frequency. A cycle is defined as one
+Monte Carlo move attempt per degree of freedom. So how long one cycle
+takes depends on the number of points in the fields. "-preview" writes
+files with the current state of the fields, which will be named
+something like "outputName.3.fieldName" for the third frame. "-output"
+says how often it writes all the fields to the
+"outputName.3.fieldName". "-update" controls how often the diagnostic
+data is written to standard out and also how often the global cost is
+updated.
+
+Aside: What do I mean by "global cost"? When a Monte Carlo move is
+made, it only affects the cost of pieces of the trajectory nearby. I
+make the program run much faster by only computing the change in the
+cost for some pieces of the trajectory affected by the Monte Carlo
+move. Due to truncation error the local accumulations of these changes
+may drift, so every so often we globally recalculate the cost. Under
+normal conditions, the cost with accumulated changes and the globally
+recalculated cost differ by something close to the machine precision.
+
+Sometimes loading the files can be the slow, so you can either filter
+them with awk first or write them to an "event file". You do "dump
+events eventFile.events" which writes the events (displacements) in
+the internal organization of diffusion fusion. The command "loadEvent
+eventFile.events" will then load them relatively rapidly, which is
+especially good if you're running diffusionFusion on the same
+trajectory with different parameters.

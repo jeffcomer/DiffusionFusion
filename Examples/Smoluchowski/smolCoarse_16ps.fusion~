@@ -1,0 +1,22 @@
+output smolCoarse_16ps
+dump distro %.gt.hist
+dump best %.best
+#dump events %.events
+
+trajectory -time t -col 0 -coor z -col 1 -force fz -col .
+
+field diffuse cubic -step 2 -f coarse_oneHundred.dat -minVal 0.1
+field force cubic -step 0.05 -f coarse_zero.dat
+
+prior scale diffuse
+prior smooth diffuse -grad 50
+
+trajCost smolCrank diffuse force -time t -pos z -kt 0.61205887 -timestep 500e-6 -hop 40
+mc diffuse -n 2000 -preview 100 -output 10 -update 10
+
+load Data/full_meoh.1.16ps.traj
+load Data/full_meoh.2.16ps.traj
+load Data/full_meoh.3.16ps.traj
+load Data/full_meoh.14.16ps.traj
+load Data/full_meoh.17.16ps.traj
+
