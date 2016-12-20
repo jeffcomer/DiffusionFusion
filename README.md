@@ -5,6 +5,17 @@ This is a program for calculating position-dependent diffusivity functions from 
 
 Comer, Chipot and Gonzalez-Nilo (2013) J. Chem. Theory Comput., 9(2) 876-882, DOI: 10.1021/ct300867e
 
+
+See the following for information on using reflecting boundary conditions, which are useful for an orientation angle:
+
+Comer J, Schulten K, Chipot C (2014) Diffusive models of membrane permeation with explicit orientational freedom. J Chem Theory Comput 10(7):2710–2718. doi: 10.1021/ct500209j
+
+
+See the following for information on use of the Smoluchowski and fractional Smoluchowski solver:
+
+Chipot C, Comer J (2016) Subdiffusion in membrane permeation of small molecules. Sci. Rep. 6:35913. doi: 10.1038/srep35913
+
+
 Installation
 ------------
 
