@@ -38,6 +38,7 @@
 #include "TrajComer.H"
 #include "TrajSmolCrank.H"
 #include "TrajFracSmolCrank.H"
+#include "TrajFracSmolCrankFaster.H"
 #include "TrajReflect.H"
 #include "TrajComer2d.H"
 #include "TrajReflect2d.H"
@@ -383,7 +384,7 @@ public:
     fprintf(stdout, "\nmc field0 field1... -n numSteps -output outputPeriod -preview previewPeriod -update updatePeriod -tol relErrMax -seed randomSeed -cycle stepsPerCycle -global globalPeriod\n");
     //fprintf(stdout, "\ntrajCost ccg|ccgPmf|ccg2d|reflect|reflect2d|smolCrank|smolCrankBias|fracSmolCrank|smolCrankDual|fracSmolCrankDual|langevinExp|smoluchowski|simpleSmol|reflectSmol field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-timestep timestep] [-hop maxHop] [-dim primaryDimension] [-group group]\n");
 
-    fprintf(stdout, "\ntrajCost ccg|reflect|ccg2d|reflect2d|smolCrank|fracSmolCrank field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-timestep timestep] [-hop maxHop] [-dim primaryDimension] [-group groupIndex] [-weight costMultiplier]\n");
+    fprintf(stdout, "\ntrajCost ccg|reflect|ccg2d|reflect2d|smolCrank|fracSmolCrank|fracSmolCrankFast field0 field1... -`varName' costVarName [-kt thermalEnergy] [-leastLocal leastLocalField] [-timestep timestep] [-hop maxHop] [-dim primaryDimension] [-group groupIndex] [-weight costMultiplier]\n");
     fprintf(stdout, "\ndump events|fields|distro|best|eventCost|bias dumpFile\n");
     fprintf(stdout, "\t*Note: A '%%' in dumpFile is substituted with 'output'.\n");
   }
@@ -1440,6 +1441,12 @@ private:
     	exit(-1);
       }
       trajCostList[tc] = new TrajFracSmolCrank(tcd);
+    } else if (type == "fracSmolCrankFast") {
+      if (tcd.timestep < 0.0 || tcd.maxHop < 0.0) {
+    	fprintf(stderr,"ERROR: trajCost fracSmolCrankFast requires a timestep and maxHop. Add '-timestep' and '-hop' to the trajCost command.\n");
+    	exit(-1);
+      }
+      trajCostList[tc] = new TrajFracSmolCrankFaster(tcd);
     } else {
       fprintf(stderr, "ERROR trajCost: Unrecognized type `%s'\n", type.cs());
       printUsage();

@@ -49,12 +49,67 @@ public:
     return gsl_sf_gammainv(x)/x;
   }
 
+  // See: D.A. Murio. Computers and Mathematics with Applications 56 (2008) 1138–1145
   static double memorySum(const int i, const int s, double al, const gsl_vector** solList) {
     double sum = 0.0;
+    // Also see: Sweilam et al. between equation 8.
     for (int j = 2; j <= s; j++) {
       double omega = pow(j,1.0-al) - pow(j-1,1.0-al);
       sum += omega*(gsl_vector_get(solList[s-j+1], i) - gsl_vector_get(solList[s-j], i));
     }
+    return sum;
+  }
+
+  // See: D.A. Murio. Computers and Mathematics with Applications 56 (2008) 1138–1145
+  // We integrate with larger interval for stuff farther back in time.
+  // The interval jump ~ t^alpha for backward time displacement t.
+  static double memorySumFaster(const int i, const int s, double al, const gsl_vector** solList) {
+    double sum = 0.0;
+
+    int j0 = 1;
+    int j1;
+    while (j0 < s) {
+      // Get the end of the interval.
+      // Scale the jumps by alpha.
+      double jump = pow(j0, al);
+      j1 = j0 + int(floor(jump));
+      // Don't jump over the last value.
+      if (j1 > s) j1 = s;
+
+      int del = j1 - j0;
+      double omega = pow(j1,1.0-al) - pow(j0,1.0-al);
+      sum += omega*(gsl_vector_get(solList[s-j0], i) - gsl_vector_get(solList[s-j1], i))/del;
+
+      // Go to the next interval.
+      j0 = j1;
+    }
+
+    return sum;
+  }
+
+
+  // See: D.A. Murio. Computers and Mathematics with Applications 56 (2008) 1138–1145
+  // We integrate with larger interval for stuff farther back in time.
+  static double memorySumLevel(const int i, const int s, double al, const gsl_vector** solList) {
+    double sum = 0.0;
+
+    int j0 = 1;
+    int j1;
+    double jump = 1.0;
+    while (j0 < s) {
+      j1 = j0 + int(floor(jump));
+      // Don't jump over the last value.
+      if (j1 > s) j1 = s;
+
+      int del = j1 - j0;
+      double omega = pow(j1,1.0-al) - pow(j0,1.0-al);
+      sum += omega*(gsl_vector_get(solList[s-j0], i) - gsl_vector_get(solList[s-j1], i))/del;
+
+      // Go to the next interval.
+      j0 = j1;
+      jump *= 1.5;
+    }
+
     return sum;
   }
 
@@ -78,6 +133,8 @@ public:
       return sum;
     }
   }
+
+  
 
   inline double sigmaAlpha(double a) const {
     return 2.0*x_gamma_x_recip(1.0-a)*pow(timestep,-a);
@@ -211,6 +268,7 @@ public:
 	double um = (4.0*gsl_vector_get(sol0,i) - gsl_vector_get(sol0,i+1))/(3.0+2.0*driftA);
 	
 	//double sum = memorySumApprox(i, s, alphaL[i], (const gsl_vector**)solList, longSum[i]);
+	//double sum = memorySum(i, s, alphaL[i], (const gsl_vector**)solList);
 	double sum = memorySum(i, s, alphaL[i], (const gsl_vector**)solList);
 	double corrA = (cb[i]-r[i])/(3.0+2.0*driftA);
 
