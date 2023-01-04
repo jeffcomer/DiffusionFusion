@@ -8,7 +8,7 @@ Comer, Chipot and Gonzalez-Nilo (2013) J. Chem. Theory Comput., 9(2) 876-882, DO
 
 See the following for information on two-dimensional calculations and using reflecting boundary conditions, which are useful for an orientation angle:
 
-Comer J, Schulten K, Chipot C (2014) Diffusive models of membrane permeation with explicit orientational freedom. J Chem Theory Comput 10(7):2710–2718. doi: 10.1021/ct500209j
+Comer J, Schulten K, Chipot C (2014) Diffusive models of membrane permeation with explicit orientational freedom. J Chem Theory Comput 10(7):2710–2718. doi: https://doi.org/10.1021/ct500209j
 
 
 See the following for information on use of the Smoluchowski and fractional Smoluchowski solver:
