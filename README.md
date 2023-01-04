@@ -47,9 +47,9 @@ How do I change the lag time? Does it have to do with "timestep" or "hop"?
 
 The lag time is not controlled by the options you suggested, but instead by the lag time in the input data. You can modify this by changing the "-stride" option to the "load" commands that take in the input data, or by striding inputs yourself using another program. 
 
-"-hop" is merely an optimization that allows the Smoluchowski solver to calculate over a domain smaller than the entire domain. It is an integer that should be larger than sqrt(2*largest_expected_diffusivity*lag_time)/spatial_grid_size. You can always give a number as big as the total number of grid points or larger, but the calculation will be slower without the optimization.
+"-hop" is merely an optimization that allows the Smoluchowski solver to calculate over a domain smaller than the entire domain. It is an integer that should be larger than sqrt(2\*largest_expected_diffusivity\*lag_time)/spatial_grid_size. You can always give a number as big as the total number of grid points or larger, but the calculation will be slower without the optimization.
 
-"-timestep" is the time step for the Smoluchowski solver. It just needs to be small enough that the Crank-Nicolson scheme converges. The criterion for damping of oscillations is something like timestep/(spatial_grid_size^2)*largest_expected_diffusivity < 1/2 ( https://en.wikipedia.org/wiki/Crank%E2%80%93Nicolson_method ). Note that smaller spatial grids require smaller timesteps.
+"-timestep" is the time step for the Smoluchowski solver. It just needs to be small enough that the Crank-Nicolson scheme converges. The criterion for damping of oscillations is something like timestep/(spatial_grid_size^2)\*largest_expected_diffusivity < 1/2 ( https://en.wikipedia.org/wiki/Crank%E2%80%93Nicolson_method ). Note that smaller spatial grids require smaller timesteps.
 
 
 My diffusivity profiles look very noisy for larger strides. Can I reformat the data so that every data point is used even at larger strides? For example, at stride 10, I could include distinct trajectories with frames (0, 10, 20, 30...) and frames (1, 11, 21, 31...).
