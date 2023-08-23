@@ -67,7 +67,7 @@ Another way would be to more strongly enforce the smoothness of the result by de
 > prior smooth diffuse -grad 10
 
 
-** Why do you set the force to zero, " -force fz -col . " and when we should do this?**
+**Why do you set the force to zero, " -force fz -col . " and when we should do this?**
 
 Short answer: the Smoluchowski solvers ignore the biasing force information, so it doesn't matter what it is.
 
